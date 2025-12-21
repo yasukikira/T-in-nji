@@ -1,147 +1,442 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cyber Sequence Protocol</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CYBER SEQUENCE // PROTOCOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #050510; color: #00ffff; font-family: 'Courier New', monospace; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-        h1 { text-shadow: 0 0 10px #00ffff; }
-        #grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px; }
-        .cell { width: 100px; height: 100px; background: #1a1a2e; border: 2px solid #00ffff; cursor: pointer; transition: 0.2s; border-radius: 8px; }
-        .cell.active { background: #ffffff; box-shadow: 0 0 20px #ffffff; border-color: #fff; }
-        .cell:active { background: #00aaaa; }
-        #status { font-size: 1.2em; margin-bottom: 10px; min-height: 1.5em; }
-        #input-area, #result-area { display: none; background: #111; padding: 20px; border: 1px solid #00ffff; border-radius: 10px; }
-        button { background: #00ffff; border: none; padding: 10px 20px; color: #000; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        input { background: #000; border: 1px solid #00ffff; color: #fff; padding: 5px; }
+        :root {
+            --primary: #00f3ff;
+            --secondary: #ff0055;
+            --bg: #050510;
+            --grid-gap: 12px;
+            --cell-size: clamp(70px, 20vw, 100px);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* --- CRT EFFECT OVERLAY --- */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+        .crt::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* --- UI ELEMENTS --- */
+        #container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px var(--primary);
+            letter-spacing: 2px;
+        }
+
+        .status-bar {
+            border-bottom: 1px solid var(--primary);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            font-size: 1.1rem;
+            min-height: 1.5em;
+            color: #fff;
+            text-shadow: 0 0 5px var(--primary);
+        }
+
+        /* --- GAME GRID --- */
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: var(--grid-gap);
+            margin: 0 auto 30px auto;
+            width: fit-content;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: rgba(0, 243, 255, 0.1);
+            border: 2px solid var(--primary);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.1s;
+            position: relative;
+            box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+        }
+
+        /* States */
+        .cell.active {
+            background: #fff;
+            border-color: #fff;
+            box-shadow: 0 0 25px #fff, 0 0 50px var(--primary);
+            transform: scale(0.95);
+        }
+
+        .cell:active {
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        .cell.error {
+            background: var(--secondary);
+            border-color: var(--secondary);
+            box-shadow: 0 0 20px var(--secondary);
+        }
+
+        /* --- BUTTONS & INPUTS --- */
+        button {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+            padding: 15px 40px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            transition: 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        button:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        input {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--primary);
+            color: #fff;
+            padding: 10px;
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1rem;
+            width: 80%;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        textarea {
+            background: rgba(0,0,0,0.8);
+            border: 1px dashed var(--secondary);
+            color: var(--secondary);
+            width: 90%;
+            font-family: 'Share Tech Mono';
+            padding: 10px;
+            margin-top: 10px;
+            resize: none;
+        }
+
+        /* --- SCREENS --- */
+        .screen { display: none; animation: fadeIn 0.5s; }
+        .screen.visible { display: block; }
+
+        /* --- ANIMATIONS --- */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            50% { transform: translateX(10px); }
+            75% { transform: translateX(-10px); }
+            100% { transform: translateX(0); }
+        }
+        
+        .shaking { animation: shake 0.3s ease-in-out; }
+
+        .progress-bar {
+            width: 0%;
+            height: 5px;
+            background: var(--primary);
+            margin: 10px auto;
+            transition: width 0.2s;
+        }
+
+        #start-btn-container { margin-top: 20px; }
     </style>
 </head>
-<body>
+<body class="crt">
 
-    <div id="game-area">
-        <h1>CYBER SEQUENCE</h1>
-        <div id="status">Watch the pattern...</div>
-        <div id="grid">
-            <div class="cell" id="0"></div><div class="cell" id="1"></div><div class="cell" id="2"></div>
-            <div class="cell" id="3"></div><div class="cell" id="4"></div><div class="cell" id="5"></div>
-            <div class="cell" id="6"></div><div class="cell" id="7"></div><div class="cell" id="8"></div>
+    <div id="container">
+        <h1>CYBER // SEQ</h1>
+        <div class="status-bar" id="status-text">SYSTEM STANDBY</div>
+
+        <!-- SCREEN: GAME -->
+        <div id="game-screen" class="screen visible">
+            <div id="grid">
+                <div class="cell" id="0"></div><div class="cell" id="1"></div><div class="cell" id="2"></div>
+                <div class="cell" id="3"></div><div class="cell" id="4"></div><div class="cell" id="5"></div>
+                <div class="cell" id="6"></div><div class="cell" id="7"></div><div class="cell" id="8"></div>
+            </div>
+            <div id="start-btn-container">
+                <button onclick="startGame()" id="start-btn">INITIALIZE</button>
+            </div>
         </div>
-        <button onclick="startGame()">START HACK</button>
-    </div>
 
-    <div id="input-area">
-        <h2>SEQUENCE COMPLETE</h2>
-        <p>Enter your Discord ID to generate Key Fragment:</p>
-        <input type="text" id="discordId" placeholder="e.g. 123456789012345678">
-        <br>
-        <button onclick="generateCode()">GENERATE CODE</button>
-    </div>
+        <!-- SCREEN: INPUT -->
+        <div id="input-screen" class="screen">
+            <h2 style="color: #fff">SEQUENCE COMPLETE</h2>
+            <p>Identity Verification Required</p>
+            <input type="text" id="discordId" placeholder="ENTER DISCORD ID" autocomplete="off">
+            <div class="progress-bar" id="hack-progress"></div>
+            <br>
+            <button onclick="processVerification()">GENERATE KEY</button>
+        </div>
 
-    <div id="result-area">
-        <h3>COPY THIS CODE:</h3>
-        <textarea id="finalCode" rows="3" cols="40" readonly style="background: #000; color: #0f0; border: none;"></textarea>
-        <p>Run command: <code>/claim [code]</code></p>
+        <!-- SCREEN: RESULT -->
+        <div id="result-screen" class="screen">
+            <h2 style="color: var(--secondary)">ACCESS GRANTED</h2>
+            <p>Copy this encrypted key:</p>
+            <textarea id="finalCode" rows="3" readonly></textarea>
+            <p style="font-size: 0.9rem; margin-top: 15px;">
+                COMMAND:<br>
+                <code style="background: #222; padding: 5px;">/claim [code]</code>
+            </p>
+            <button onclick="location.reload()" style="font-size: 0.9rem; padding: 10px 20px; margin-top: 20px; border-color: #555;">RESET SYSTEM</button>
+        </div>
     </div>
 
     <script>
-        // --- GAME CONFIG ---
-        const SEQUENCE_LENGTH = 6; // Difficulty (Number of flashes)
-        // -------------------
+        // --- AUDIO ENGINE (Web Audio API) ---
+        // No external files required. Pure synthesized sound.
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
 
+        const tones = {
+            tap: { freq: 800, type: 'sine', dur: 0.1 },
+            play: { freq: 1200, type: 'square', dur: 0.15 },
+            error: { freq: 150, type: 'sawtooth', dur: 0.4 },
+            win: { freq: 600, type: 'triangle', dur: 0.1 } // Base for melody
+        };
+
+        function playSound(name, freqOverride = null) {
+            if (ctx.state === 'suspended') ctx.resume();
+            
+            const preset = tones[name];
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            
+            osc.type = preset.type;
+            osc.frequency.setValueAtTime(freqOverride || preset.freq, ctx.currentTime);
+            
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + preset.dur);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start();
+            osc.stop(ctx.currentTime + preset.dur);
+        }
+
+        function playWinSound() {
+            // Little victory arpeggio
+            [440, 554, 659, 880].forEach((freq, i) => {
+                setTimeout(() => playSound('win', freq), i * 100);
+            });
+        }
+
+        // --- GAME LOGIC ---
+        const SEQUENCE_LENGTH = 6; // How many rounds
         let sequence = [];
         let playerSequence = [];
         let level = 0;
-        let isPlaying = false;
+        let isInputLocked = true;
+
+        const statusText = document.getElementById('status-text');
+        const startBtn = document.getElementById('start-btn');
+        const grid = document.getElementById('grid');
 
         function startGame() {
+            if (ctx.state === 'suspended') ctx.resume();
+            startBtn.style.display = 'none';
             sequence = [];
-            playerSequence = [];
             level = 1;
-            isPlaying = true;
             nextRound();
         }
 
         function nextRound() {
             playerSequence = [];
-            document.getElementById('status').innerText = `Level ${level}/${SEQUENCE_LENGTH}`;
+            isInputLocked = true;
+            statusText.innerText = `UPLOADING PACKET ${level}/${SEQUENCE_LENGTH}...`;
+            statusText.style.color = "var(--primary)";
             
-            // Add random step
+            // Add new step
             sequence.push(Math.floor(Math.random() * 9));
-            playSequence();
+            
+            setTimeout(() => playSequence(), 1000);
         }
 
         async function playSequence() {
-            for (let id of sequence) {
-                await flash(id);
+            for (let i = 0; i < sequence.length; i++) {
+                await flashCell(sequence[i], 600, 'play');
             }
-            document.getElementById('status').innerText = "REPEAT THE SEQUENCE";
+            statusText.innerText = "REPLICATE SEQUENCE";
+            statusText.style.color = "#fff";
+            isInputLocked = false;
         }
 
-        function flash(id) {
+        function flashCell(id, speed = 300, soundType = 'tap') {
             return new Promise(resolve => {
-                const el = document.getElementById(id);
-                el.classList.add('active');
+                const cell = document.getElementById(id);
+                cell.classList.add('active');
+                playSound(soundType, soundType === 'play' ? 600 + (id * 50) : null); // Pitch scaling based on cell ID
+                
                 setTimeout(() => {
-                    el.classList.remove('active');
-                    setTimeout(resolve, 300); // Pause between flashes
-                }, 500); // Flash duration
+                    cell.classList.remove('active');
+                    setTimeout(resolve, speed / 2);
+                }, speed / 2);
             });
         }
 
-        // Handle Clicks
+        // Cell Interaction
         document.querySelectorAll('.cell').forEach(cell => {
-            cell.addEventListener('click', () => {
-                if (!isPlaying || document.getElementById('status').innerText.includes("Watch")) return;
-                
-                const id = parseInt(cell.id);
-                flash(id); // Visual feedback
-                playerSequence.push(id);
-
-                // Check Step
-                const currentIndex = playerSequence.length - 1;
-                if (playerSequence[currentIndex] !== sequence[currentIndex]) {
-                    document.getElementById('status').innerText = "FAILED. RESTARTING...";
-                    isPlaying = false;
-                    return;
-                }
-
-                // Check Level Completion
-                if (playerSequence.length === sequence.length) {
-                    if (level === SEQUENCE_LENGTH) {
-                        winGame();
-                    } else {
-                        level++;
-                        setTimeout(nextRound, 1000);
-                    }
-                }
+            cell.addEventListener('mousedown', () => handleInput(parseInt(cell.id)));
+            cell.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // Prevent scroll on tap
+                handleInput(parseInt(cell.id));
             });
         });
 
-        function winGame() {
-            isPlaying = false;
-            document.getElementById('game-area').style.display = 'none';
-            document.getElementById('input-area').style.display = 'block';
+        function handleInput(id) {
+            if (isInputLocked) return;
+
+            // Visual/Audio Feedback
+            const cell = document.getElementById(id);
+            cell.classList.add('active');
+            setTimeout(() => cell.classList.remove('active'), 150);
+            playSound('tap', 800 + (id * 50));
+
+            playerSequence.push(id);
+
+            // Check correctness
+            const currentStep = playerSequence.length - 1;
+            if (playerSequence[currentStep] !== sequence[currentStep]) {
+                gameOver();
+                return;
+            }
+
+            // Check if round complete
+            if (playerSequence.length === sequence.length) {
+                isInputLocked = true;
+                if (level === SEQUENCE_LENGTH) {
+                    setTimeout(gameWin, 500);
+                } else {
+                    level++;
+                    statusText.innerText = "ACCEPTED. NEXT PACKET...";
+                    setTimeout(nextRound, 800);
+                }
+            }
         }
 
-        function generateCode() {
+        function gameOver() {
+            isInputLocked = true;
+            statusText.innerText = "SEQUENCE MISMATCH. FATAL ERROR.";
+            statusText.style.color = "var(--secondary)";
+            playSound('error');
+            
+            // Shake effect
+            document.body.classList.add('shaking');
+            document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
+            
+            setTimeout(() => {
+                document.body.classList.remove('shaking');
+                document.querySelectorAll('.cell').forEach(c => c.classList.remove('error'));
+                startBtn.innerText = "RETRY HACK";
+                startBtn.style.display = 'inline-block';
+            }, 1000);
+        }
+
+        function gameWin() {
+            playWinSound();
+            statusText.innerText = "SYSTEM BREACH SUCCESSFUL";
+            setTimeout(() => switchScreen('input-screen'), 1000);
+        }
+
+        function switchScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
+            document.getElementById(id).classList.add('visible');
+        }
+
+        // --- CODE GENERATION ---
+        function processVerification() {
             const uid = document.getElementById('discordId').value.trim();
-            if (uid.length < 15) { alert("Invalid Discord ID"); return; }
+            const bar = document.getElementById('hack-progress');
+            
+            if (uid.length < 15 || isNaN(uid)) {
+                alert("ERR: Invalid User ID Format");
+                return;
+            }
 
-            // Simple "Encryption" Logic
-            // In a real game, this would be server-side. 
-            // For a bot activity, we obfuscate a string combining ID + Date + Salt
-            
-            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-            const salt = "CYBER_TRIVIA_SECRET_KEY_99"; 
-            
-            // Create a fake "Hash"
+            // Fake loading animation
+            let width = 0;
+            const interval = setInterval(() => {
+                width += 5;
+                bar.style.width = width + '%';
+                playSound('tap', 200 + width * 10); // Escalating pitch
+                
+                if (width >= 100) {
+                    clearInterval(interval);
+                    generateCode(uid);
+                }
+            }, 50);
+        }
+
+        function generateCode(uid) {
+            // Must match the Python Bot's logic
+            const today = new Date().toISOString().split('T')[0];
+            const salt = "CYBER_TRIVIA_SECRET_KEY_99";
             const raw = `${uid}::${today}::${salt}`;
-            const code = btoa(raw); // Base64 Encode
+            const code = btoa(raw);
 
-            document.getElementById('input-area').style.display = 'none';
-            document.getElementById('result-area').style.display = 'block';
             document.getElementById('finalCode').value = code;
+            playWinSound();
+            switchScreen('result-screen');
         }
     </script>
 </body>
