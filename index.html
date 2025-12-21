@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER SEQUENCE // PROTOCOL</title>
+    <title>CYBER PROTOCOL // INFINITE</title>
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #00f3ff;
             --secondary: #ff0055;
             --bg: #050510;
-            --grid-gap: 12px;
-            --cell-size: clamp(70px, 20vw, 100px);
+            --grid-size: 3; /* Dynamic */
         }
 
         body {
@@ -21,423 +20,380 @@
             margin: 0;
             height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             user-select: none;
+            transition: filter 0.2s;
         }
 
-        /* --- CRT EFFECT OVERLAY --- */
-        .crt::before {
-            content: " ";
-            display: block;
+        /* --- BOSS MODE EFFECTS --- */
+        body.sabotage {
+            animation: glitch-screen 2s infinite;
+            filter: invert(1) contrast(1.2);
+        }
+
+        @keyframes glitch-screen {
+            0% { transform: translate(0,0); }
+            2% { transform: translate(-2px, 2px); }
+            4% { transform: translate(2px, -2px); }
+            6% { transform: translate(0,0); }
+        }
+
+        /* --- UI --- */
+        #ui-layer {
             position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 2;
-            background-size: 100% 2px, 3px 100%;
-            pointer-events: none;
-        }
-        .crt::after {
-            content: " ";
-            display: block;
-            position: absolute;
-            top: 0; left: 0; bottom: 0; right: 0;
-            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* --- UI ELEMENTS --- */
-        #container {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            width: 100%;
-            max-width: 500px;
-            padding: 20px;
-        }
-
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 5px;
-            text-shadow: 0 0 10px var(--primary);
-            letter-spacing: 2px;
-        }
-
-        .status-bar {
-            border-bottom: 1px solid var(--primary);
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            font-size: 1.1rem;
-            min-height: 1.5em;
-            color: #fff;
+            top: 20px;
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.2rem;
             text-shadow: 0 0 5px var(--primary);
+            z-index: 10;
         }
 
-        /* --- GAME GRID --- */
-        #grid {
+        #center-msg {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            height: 2rem;
+            text-align: center;
+        }
+
+        /* --- DYNAMIC GRID --- */
+        #grid-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: var(--grid-gap);
-            margin: 0 auto 30px auto;
-            width: fit-content;
+            gap: 10px;
+            /* Grid layout set via JS */
+            transition: all 0.5s;
         }
 
         .cell {
-            width: var(--cell-size);
-            height: var(--cell-size);
-            background: rgba(0, 243, 255, 0.1);
+            width: clamp(50px, 15vw, 90px);
+            height: clamp(50px, 15vw, 90px);
+            background: rgba(0, 243, 255, 0.05);
             border: 2px solid var(--primary);
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.1s;
-            position: relative;
-            box-shadow: 0 0 5px rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+            transition: background 0.1s, transform 0.1s;
         }
 
-        /* States */
         .cell.active {
             background: #fff;
-            border-color: #fff;
-            box-shadow: 0 0 25px #fff, 0 0 50px var(--primary);
+            box-shadow: 0 0 30px #fff;
             transform: scale(0.95);
-        }
-
-        .cell:active {
-            background: var(--primary);
-            box-shadow: 0 0 15px var(--primary);
+            border-color: #fff;
         }
 
         .cell.error {
             background: var(--secondary);
             border-color: var(--secondary);
-            box-shadow: 0 0 20px var(--secondary);
-        }
-
-        /* --- BUTTONS & INPUTS --- */
-        button {
-            background: transparent;
-            color: var(--primary);
-            border: 2px solid var(--primary);
-            padding: 15px 40px;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1.2rem;
-            cursor: pointer;
-            text-transform: uppercase;
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
-            transition: 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        button:hover {
-            background: var(--primary);
-            color: #000;
-            box-shadow: 0 0 20px var(--primary);
-        }
-
-        button:disabled {
-            border-color: #555;
-            color: #555;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
-
-        input {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid var(--primary);
-            color: #fff;
-            padding: 10px;
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 1rem;
-            width: 80%;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        input:focus {
-            outline: none;
-            box-shadow: 0 0 10px var(--primary);
-        }
-
-        textarea {
-            background: rgba(0,0,0,0.8);
-            border: 1px dashed var(--secondary);
-            color: var(--secondary);
-            width: 90%;
-            font-family: 'Share Tech Mono';
-            padding: 10px;
-            margin-top: 10px;
-            resize: none;
+            box-shadow: 0 0 30px var(--secondary);
         }
 
         /* --- SCREENS --- */
-        .screen { display: none; animation: fadeIn 0.5s; }
-        .screen.visible { display: block; }
+        .screen { display: none; text-align: center; width: 100%; max-width: 500px; }
+        .screen.visible { display: flex; flex-direction: column; align-items: center; }
 
-        /* --- ANIMATIONS --- */
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            50% { transform: translateX(10px); }
-            75% { transform: translateX(-10px); }
-            100% { transform: translateX(0); }
-        }
-        
-        .shaking { animation: shake 0.3s ease-in-out; }
-
-        .progress-bar {
-            width: 0%;
-            height: 5px;
-            background: var(--primary);
-            margin: 10px auto;
-            transition: width 0.2s;
+        input, button, textarea {
+            font-family: 'Share Tech Mono';
+            background: transparent;
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 10px;
+            margin: 10px;
+            font-size: 1rem;
         }
 
-        #start-btn-container { margin-top: 20px; }
+        button { 
+            cursor: pointer; 
+            background: rgba(0, 243, 255, 0.1); 
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { background: var(--primary); color: #000; }
+        
+        textarea { width: 90%; resize: none; background: rgba(0,0,0,0.5); font-size: 0.8rem; }
+        input { text-align: center; width: 80%; }
+
+        .scanline {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 99;
+        }
     </style>
 </head>
-<body class="crt">
+<body>
+    <div class="scanline"></div>
 
-    <div id="container">
-        <h1>CYBER // SEQ</h1>
-        <div class="status-bar" id="status-text">SYSTEM STANDBY</div>
+    <!-- HUD -->
+    <div id="ui-layer">
+        <div id="level-display">LVL: 01</div>
+        <div id="round-display">R: 1/6</div>
+    </div>
 
-        <!-- SCREEN: GAME -->
-        <div id="game-screen" class="screen visible">
-            <div id="grid">
-                <div class="cell" id="0"></div><div class="cell" id="1"></div><div class="cell" id="2"></div>
-                <div class="cell" id="3"></div><div class="cell" id="4"></div><div class="cell" id="5"></div>
-                <div class="cell" id="6"></div><div class="cell" id="7"></div><div class="cell" id="8"></div>
-            </div>
-            <div id="start-btn-container">
-                <button onclick="startGame()" id="start-btn">INITIALIZE</button>
-            </div>
+    <!-- MAIN GAME SCREEN -->
+    <div id="game-screen" class="screen visible">
+        <div id="center-msg">SYSTEM READY</div>
+        <div id="grid-container">
+            <!-- Generated via JS -->
         </div>
+        <button id="start-btn" onclick="Game.init()" style="margin-top: 30px;">INITIALIZE LINK</button>
+    </div>
 
-        <!-- SCREEN: INPUT -->
-        <div id="input-screen" class="screen">
-            <h2 style="color: #fff">SEQUENCE COMPLETE</h2>
-            <p>Identity Verification Required</p>
-            <input type="text" id="discordId" placeholder="ENTER DISCORD ID" autocomplete="off">
-            <div class="progress-bar" id="hack-progress"></div>
-            <br>
-            <button onclick="processVerification()">GENERATE KEY</button>
+    <!-- REWARD SCREEN -->
+    <div id="reward-screen" class="screen">
+        <h2 style="color: #fff">CONNECTION TERMINATED</h2>
+        <p id="end-reason">SIGNAL LOST</p>
+        <div style="border: 1px solid var(--secondary); padding: 10px; width: 80%; margin-bottom: 20px;">
+            HIGHEST LEVEL: <span id="final-level" style="color:#fff">0</span>
         </div>
+        
+        <p>Enter Discord ID to secure data:</p>
+        <input type="text" id="discord-id" placeholder="User ID (Required)">
+        <button onclick="Game.generateCode()">ENCRYPT & CLAIM</button>
+        <button onclick="location.reload()" style="border-color: #555; color: #777; margin-top:5px;">RESTART (LOSE DATA)</button>
+    </div>
 
-        <!-- SCREEN: RESULT -->
-        <div id="result-screen" class="screen">
-            <h2 style="color: var(--secondary)">ACCESS GRANTED</h2>
-            <p>Copy this encrypted key:</p>
-            <textarea id="finalCode" rows="3" readonly></textarea>
-            <p style="font-size: 0.9rem; margin-top: 15px;">
-                COMMAND:<br>
-                <code style="background: #222; padding: 5px;">/claim [code]</code>
-            </p>
-            <button onclick="location.reload()" style="font-size: 0.9rem; padding: 10px 20px; margin-top: 20px; border-color: #555;">RESET SYSTEM</button>
-        </div>
+    <!-- CODE SCREEN -->
+    <div id="code-screen" class="screen">
+        <h2 style="color: var(--primary)">DATA ENCRYPTED</h2>
+        <textarea id="output-code" rows="4" readonly></textarea>
+        <p>Run: <code>/claim [code]</code></p>
+        <button onclick="location.reload()">NEW SESSION</button>
     </div>
 
     <script>
-        // --- AUDIO ENGINE (Web Audio API) ---
-        // No external files required. Pure synthesized sound.
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        const ctx = new AudioContext();
+        /**
+         * CYBER PROTOCOL GAME ENGINE
+         * Stores progress in Closure Scope (RAM). Refreshes wipe data.
+         */
+        const Game = (() => {
+            // Configuration
+            const CONFIG = {
+                roundsPerLevel: 6,
+                baseSpeed: 600,
+                bossInterval: 10
+            };
 
-        const tones = {
-            tap: { freq: 800, type: 'sine', dur: 0.1 },
-            play: { freq: 1200, type: 'square', dur: 0.15 },
-            error: { freq: 150, type: 'sawtooth', dur: 0.4 },
-            win: { freq: 600, type: 'triangle', dur: 0.1 } // Base for melody
-        };
+            // State (RAM Storage)
+            let state = {
+                level: 1,
+                round: 1,
+                sequence: [],
+                playerInput: [],
+                isLocked: true,
+                gridSize: 3, // 3x3 start
+                bossMode: false
+            };
 
-        function playSound(name, freqOverride = null) {
-            if (ctx.state === 'suspended') ctx.resume();
+            // Audio Context
+            const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
             
-            const preset = tones[name];
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            
-            osc.type = preset.type;
-            osc.frequency.setValueAtTime(freqOverride || preset.freq, ctx.currentTime);
-            
-            gain.gain.setValueAtTime(0.1, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + preset.dur);
+            // --- AUDIO SYSTEM ---
+            const playTone = (freq, type, dur) => {
+                if(AudioCtx.state === 'suspended') AudioCtx.resume();
+                const osc = AudioCtx.createOscillator();
+                const gain = AudioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, AudioCtx.currentTime);
+                gain.gain.setValueAtTime(0.1, AudioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + dur);
+                osc.connect(gain);
+                gain.connect(AudioCtx.destination);
+                osc.start();
+                osc.stop(AudioCtx.currentTime + dur);
+            };
 
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            
-            osc.start();
-            osc.stop(ctx.currentTime + preset.dur);
-        }
+            const Sounds = {
+                tap: (i) => playTone(400 + (i*50), 'sine', 0.1),
+                flash: (i) => playTone(400 + (i*50), 'triangle', 0.15),
+                error: () => playTone(150, 'sawtooth', 0.5),
+                boss: () => playTone(100, 'square', 0.8),
+                win: () => [500,600,800].forEach((f,i) => setTimeout(() => playTone(f,'square',0.1), i*100))
+            };
 
-        function playWinSound() {
-            // Little victory arpeggio
-            [440, 554, 659, 880].forEach((freq, i) => {
-                setTimeout(() => playSound('win', freq), i * 100);
-            });
-        }
+            // --- GRID ENGINE ---
+            const els = {
+                grid: document.getElementById('grid-container'),
+                lvl: document.getElementById('level-display'),
+                rnd: document.getElementById('round-display'),
+                msg: document.getElementById('center-msg'),
+                startBtn: document.getElementById('start-btn')
+            };
 
-        // --- GAME LOGIC ---
-        const SEQUENCE_LENGTH = 6; // How many rounds
-        let sequence = [];
-        let playerSequence = [];
-        let level = 0;
-        let isInputLocked = true;
+            const renderGrid = (size) => {
+                els.grid.innerHTML = '';
+                els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+                state.gridSize = size;
+                
+                const totalCells = size * size;
+                for(let i=0; i<totalCells; i++) {
+                    const d = document.createElement('div');
+                    d.className = 'cell';
+                    d.dataset.id = i;
+                    // Event Listeners
+                    d.addEventListener('mousedown', () => handleInput(i));
+                    d.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(i); });
+                    els.grid.appendChild(d);
+                }
+            };
 
-        const statusText = document.getElementById('status-text');
-        const startBtn = document.getElementById('start-btn');
-        const grid = document.getElementById('grid');
+            // --- GAME LOGIC ---
+            const init = () => {
+                els.startBtn.style.display = 'none';
+                state.level = 1;
+                state.round = 1;
+                state.sequence = [];
+                state.bossMode = false;
+                document.body.classList.remove('sabotage');
+                renderGrid(3); // Start 3x3
+                nextRound();
+            };
 
-        function startGame() {
-            if (ctx.state === 'suspended') ctx.resume();
-            startBtn.style.display = 'none';
-            sequence = [];
-            level = 1;
-            nextRound();
-        }
+            const nextRound = () => {
+                state.playerInput = [];
+                state.isLocked = true;
+                
+                // Difficulty Scaling
+                if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
+                if(state.level >= 15 && state.gridSize < 5) renderGrid(5);
 
-        function nextRound() {
-            playerSequence = [];
-            isInputLocked = true;
-            statusText.innerText = `UPLOADING PACKET ${level}/${SEQUENCE_LENGTH}...`;
-            statusText.style.color = "var(--primary)";
-            
-            // Add new step
-            sequence.push(Math.floor(Math.random() * 9));
-            
-            setTimeout(() => playSequence(), 1000);
-        }
+                // Boss Mode Check
+                if(state.level % CONFIG.bossInterval === 0 && !state.bossMode) {
+                    state.bossMode = true;
+                    document.body.classList.add('sabotage');
+                    Sounds.boss();
+                    els.msg.innerText = "⚠️ SYSTEM INTRUSION ⚠️";
+                } else if (state.level % CONFIG.bossInterval !== 0) {
+                    state.bossMode = false;
+                    document.body.classList.remove('sabotage');
+                    els.msg.innerText = "WATCH PATTERN";
+                }
 
-        async function playSequence() {
-            for (let i = 0; i < sequence.length; i++) {
-                await flashCell(sequence[i], 600, 'play');
-            }
-            statusText.innerText = "REPLICATE SEQUENCE";
-            statusText.style.color = "#fff";
-            isInputLocked = false;
-        }
+                // Update UI
+                els.lvl.innerText = `LVL: ${state.level.toString().padStart(2,'0')}`;
+                els.rnd.innerText = `R: ${state.round}/${CONFIG.roundsPerLevel}`;
 
-        function flashCell(id, speed = 300, soundType = 'tap') {
-            return new Promise(resolve => {
-                const cell = document.getElementById(id);
-                cell.classList.add('active');
-                playSound(soundType, soundType === 'play' ? 600 + (id * 50) : null); // Pitch scaling based on cell ID
+                // Add Step
+                const max = state.gridSize * state.gridSize;
+                state.sequence.push(Math.floor(Math.random() * max));
+
+                // Play Speed
+                let speed = Math.max(200, CONFIG.baseSpeed - (state.level * 20));
+                if(state.bossMode) speed = 250; // Fast during boss
+
+                setTimeout(() => playSequence(speed), 1000);
+            };
+
+            const playSequence = async (speed) => {
+                for(let id of state.sequence) {
+                    await flashCell(id, speed);
+                }
+                state.isLocked = false;
+                els.msg.innerText = "REPEAT";
+            };
+
+            const flashCell = (id, speed) => {
+                return new Promise(r => {
+                    const c = els.grid.children[id];
+                    if(c) c.classList.add('active');
+                    Sounds.flash(id);
+                    setTimeout(() => {
+                        if(c) c.classList.remove('active');
+                        setTimeout(r, speed * 0.5); // Gap
+                    }, speed * 0.5);
+                });
+            };
+
+            const handleInput = (id) => {
+                if(state.isLocked) return;
+                
+                const c = els.grid.children[id];
+                c.classList.add('active');
+                setTimeout(() => c.classList.remove('active'), 150);
+                Sounds.tap(id);
+
+                state.playerInput.push(id);
+
+                // Validation
+                const idx = state.playerInput.length - 1;
+                if(state.playerInput[idx] !== state.sequence[idx]) {
+                    gameOver();
+                    return;
+                }
+
+                // Round Complete
+                if(state.playerInput.length === state.sequence.length) {
+                    state.isLocked = true;
+                    if(state.round >= CONFIG.roundsPerLevel) {
+                        // Level Up
+                        state.level++;
+                        state.round = 1;
+                        state.sequence = []; // Reset sequence for new level? 
+                        // Actually, most games keep adding. Let's reset to keep it playable.
+                        state.sequence = []; 
+                        els.msg.innerText = "LEVEL UPLOAD COMPLETE";
+                        Sounds.win();
+                        setTimeout(nextRound, 1000);
+                    } else {
+                        state.round++;
+                        setTimeout(nextRound, 500);
+                    }
+                }
+            };
+
+            const gameOver = () => {
+                state.isLocked = true;
+                els.msg.innerText = "FATAL ERROR";
+                document.body.classList.remove('sabotage');
+                Sounds.error();
+                
+                document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
                 
                 setTimeout(() => {
-                    cell.classList.remove('active');
-                    setTimeout(resolve, speed / 2);
-                }, speed / 2);
-            });
-        }
+                    document.getElementById('game-screen').classList.remove('visible');
+                    document.getElementById('reward-screen').classList.add('visible');
+                    document.getElementById('final-level').innerText = state.level;
+                    document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level} // ROUND ${state.round}`;
+                }, 1500);
+            };
 
-        // Cell Interaction
-        document.querySelectorAll('.cell').forEach(cell => {
-            cell.addEventListener('mousedown', () => handleInput(parseInt(cell.id)));
-            cell.addEventListener('touchstart', (e) => {
-                e.preventDefault(); // Prevent scroll on tap
-                handleInput(parseInt(cell.id));
-            });
-        });
-
-        function handleInput(id) {
-            if (isInputLocked) return;
-
-            // Visual/Audio Feedback
-            const cell = document.getElementById(id);
-            cell.classList.add('active');
-            setTimeout(() => cell.classList.remove('active'), 150);
-            playSound('tap', 800 + (id * 50));
-
-            playerSequence.push(id);
-
-            // Check correctness
-            const currentStep = playerSequence.length - 1;
-            if (playerSequence[currentStep] !== sequence[currentStep]) {
-                gameOver();
-                return;
-            }
-
-            // Check if round complete
-            if (playerSequence.length === sequence.length) {
-                isInputLocked = true;
-                if (level === SEQUENCE_LENGTH) {
-                    setTimeout(gameWin, 500);
-                } else {
-                    level++;
-                    statusText.innerText = "ACCEPTED. NEXT PACKET...";
-                    setTimeout(nextRound, 800);
-                }
-            }
-        }
-
-        function gameOver() {
-            isInputLocked = true;
-            statusText.innerText = "SEQUENCE MISMATCH. FATAL ERROR.";
-            statusText.style.color = "var(--secondary)";
-            playSound('error');
-            
-            // Shake effect
-            document.body.classList.add('shaking');
-            document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
-            
-            setTimeout(() => {
-                document.body.classList.remove('shaking');
-                document.querySelectorAll('.cell').forEach(c => c.classList.remove('error'));
-                startBtn.innerText = "RETRY HACK";
-                startBtn.style.display = 'inline-block';
-            }, 1000);
-        }
-
-        function gameWin() {
-            playWinSound();
-            statusText.innerText = "SYSTEM BREACH SUCCESSFUL";
-            setTimeout(() => switchScreen('input-screen'), 1000);
-        }
-
-        function switchScreen(id) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
-            document.getElementById(id).classList.add('visible');
-        }
-
-        // --- CODE GENERATION ---
-        function processVerification() {
-            const uid = document.getElementById('discordId').value.trim();
-            const bar = document.getElementById('hack-progress');
-            
-            if (uid.length < 15 || isNaN(uid)) {
-                alert("ERR: Invalid User ID Format");
-                return;
-            }
-
-            // Fake loading animation
-            let width = 0;
-            const interval = setInterval(() => {
-                width += 5;
-                bar.style.width = width + '%';
-                playSound('tap', 200 + width * 10); // Escalating pitch
+            // --- SECURITY & EXPORT ---
+            const generateCode = () => {
+                const uid = document.getElementById('discord-id').value.trim();
+                if(uid.length < 15 || isNaN(uid)) { alert("INVALID ID"); return; }
                 
-                if (width >= 100) {
-                    clearInterval(interval);
-                    generateCode(uid);
+                const lvl = state.level; // From RAM
+                
+                // Anti-Cheat: Minimum effort check
+                if(lvl < 2) {
+                    alert("PROTOCOL FAILED: You must beat at least Level 1.");
+                    location.reload();
+                    return;
                 }
-            }, 50);
-        }
 
-        function generateCode(uid) {
-            // Must match the Python Bot's logic
-            const today = new Date().toISOString().split('T')[0];
-            const salt = "CYBER_TRIVIA_SECRET_KEY_99";
-            const raw = `${uid}::${today}::${salt}`;
-            const code = btoa(raw);
+                // NONCE: Random ID to prevent reusing the exact same code string
+                const nonce = Math.random().toString(36).substring(2, 10);
+                
+                const today = new Date().toISOString().split('T')[0];
+                const salt = "CYBER_TRIVIA_SECRET_KEY_99";
+                
+                // Format: User::Level::Nonce::Date::Salt
+                const raw = `${uid}::${lvl}::${nonce}::${today}::${salt}`;
+                const code = btoa(raw);
 
-            document.getElementById('finalCode').value = code;
-            playWinSound();
-            switchScreen('result-screen');
-        }
+                document.getElementById('reward-screen').classList.remove('visible');
+                document.getElementById('code-screen').classList.add('visible');
+                document.getElementById('output-code').value = code;
+            };
+
+            return { init, generateCode };
+        })();
     </script>
 </body>
 </html>
