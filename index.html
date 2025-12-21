@@ -1,0 +1,148 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cyber Sequence Protocol</title>
+    <style>
+        body { background-color: #050510; color: #00ffff; font-family: 'Courier New', monospace; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        h1 { text-shadow: 0 0 10px #00ffff; }
+        #grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px; }
+        .cell { width: 100px; height: 100px; background: #1a1a2e; border: 2px solid #00ffff; cursor: pointer; transition: 0.2s; border-radius: 8px; }
+        .cell.active { background: #ffffff; box-shadow: 0 0 20px #ffffff; border-color: #fff; }
+        .cell:active { background: #00aaaa; }
+        #status { font-size: 1.2em; margin-bottom: 10px; min-height: 1.5em; }
+        #input-area, #result-area { display: none; background: #111; padding: 20px; border: 1px solid #00ffff; border-radius: 10px; }
+        button { background: #00ffff; border: none; padding: 10px 20px; color: #000; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        input { background: #000; border: 1px solid #00ffff; color: #fff; padding: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="game-area">
+        <h1>CYBER SEQUENCE</h1>
+        <div id="status">Watch the pattern...</div>
+        <div id="grid">
+            <div class="cell" id="0"></div><div class="cell" id="1"></div><div class="cell" id="2"></div>
+            <div class="cell" id="3"></div><div class="cell" id="4"></div><div class="cell" id="5"></div>
+            <div class="cell" id="6"></div><div class="cell" id="7"></div><div class="cell" id="8"></div>
+        </div>
+        <button onclick="startGame()">START HACK</button>
+    </div>
+
+    <div id="input-area">
+        <h2>SEQUENCE COMPLETE</h2>
+        <p>Enter your Discord ID to generate Key Fragment:</p>
+        <input type="text" id="discordId" placeholder="e.g. 123456789012345678">
+        <br>
+        <button onclick="generateCode()">GENERATE CODE</button>
+    </div>
+
+    <div id="result-area">
+        <h3>COPY THIS CODE:</h3>
+        <textarea id="finalCode" rows="3" cols="40" readonly style="background: #000; color: #0f0; border: none;"></textarea>
+        <p>Run command: <code>/claim [code]</code></p>
+    </div>
+
+    <script>
+        // --- GAME CONFIG ---
+        const SEQUENCE_LENGTH = 6; // Difficulty (Number of flashes)
+        // -------------------
+
+        let sequence = [];
+        let playerSequence = [];
+        let level = 0;
+        let isPlaying = false;
+
+        function startGame() {
+            sequence = [];
+            playerSequence = [];
+            level = 1;
+            isPlaying = true;
+            nextRound();
+        }
+
+        function nextRound() {
+            playerSequence = [];
+            document.getElementById('status').innerText = `Level ${level}/${SEQUENCE_LENGTH}`;
+            
+            // Add random step
+            sequence.push(Math.floor(Math.random() * 9));
+            playSequence();
+        }
+
+        async function playSequence() {
+            for (let id of sequence) {
+                await flash(id);
+            }
+            document.getElementById('status').innerText = "REPEAT THE SEQUENCE";
+        }
+
+        function flash(id) {
+            return new Promise(resolve => {
+                const el = document.getElementById(id);
+                el.classList.add('active');
+                setTimeout(() => {
+                    el.classList.remove('active');
+                    setTimeout(resolve, 300); // Pause between flashes
+                }, 500); // Flash duration
+            });
+        }
+
+        // Handle Clicks
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.addEventListener('click', () => {
+                if (!isPlaying || document.getElementById('status').innerText.includes("Watch")) return;
+                
+                const id = parseInt(cell.id);
+                flash(id); // Visual feedback
+                playerSequence.push(id);
+
+                // Check Step
+                const currentIndex = playerSequence.length - 1;
+                if (playerSequence[currentIndex] !== sequence[currentIndex]) {
+                    document.getElementById('status').innerText = "FAILED. RESTARTING...";
+                    isPlaying = false;
+                    return;
+                }
+
+                // Check Level Completion
+                if (playerSequence.length === sequence.length) {
+                    if (level === SEQUENCE_LENGTH) {
+                        winGame();
+                    } else {
+                        level++;
+                        setTimeout(nextRound, 1000);
+                    }
+                }
+            });
+        });
+
+        function winGame() {
+            isPlaying = false;
+            document.getElementById('game-area').style.display = 'none';
+            document.getElementById('input-area').style.display = 'block';
+        }
+
+        function generateCode() {
+            const uid = document.getElementById('discordId').value.trim();
+            if (uid.length < 15) { alert("Invalid Discord ID"); return; }
+
+            // Simple "Encryption" Logic
+            // In a real game, this would be server-side. 
+            // For a bot activity, we obfuscate a string combining ID + Date + Salt
+            
+            const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+            const salt = "CYBER_TRIVIA_SECRET_KEY_99"; 
+            
+            // Create a fake "Hash"
+            const raw = `${uid}::${today}::${salt}`;
+            const code = btoa(raw); // Base64 Encode
+
+            document.getElementById('input-area').style.display = 'none';
+            document.getElementById('result-area').style.display = 'block';
+            document.getElementById('finalCode').value = code;
+        }
+    </script>
+</body>
+</html>
