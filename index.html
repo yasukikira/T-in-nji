@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL</title>
+    <title>CYBER PROTOCOL V3</title>
     <style>
         :root {
             --primary: #00f3ff;
             --secondary: #ff0055;
             --bg: #050510;
+            --panel-bg: rgba(0, 20, 40, 0.8);
         }
 
         body {
             background-color: var(--bg);
             color: var(--primary);
-            font-family: "Courier New", Courier, monospace; /* Safe System Font */
+            font-family: "Courier New", Courier, monospace;
             margin: 0;
             height: 100vh;
             display: flex;
@@ -25,148 +26,229 @@
             user-select: none;
         }
 
-        /* --- LAYOUT --- */
-        #ui-layer {
-            width: 90%;
-            display: flex;
-            justify-content: space-between;
-            font-size: 1.2rem;
-            text-shadow: 0 0 5px var(--primary);
-            margin-bottom: 10px;
-            z-index: 10;
+        /* --- BACKGROUND ANIMATION --- */
+        .cyber-grid {
+            position: fixed; top: 0; left: 0; width: 200vw; height: 200vh;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
+            animation: gridMove 20s linear infinite;
+            z-index: 0;
+            pointer-events: none;
         }
 
-        #center-msg {
-            margin-bottom: 20px;
-            font-size: 1.5rem;
-            height: 2rem;
-            text-align: center;
-            font-weight: bold;
+        @keyframes gridMove {
+            0% { transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(40px) translateZ(-200px); }
+        }
+
+        .scanline {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 99;
+            opacity: 0.6;
+        }
+
+        /* --- UI LAYER --- */
+        #ui-layer {
+            position: relative;
             z-index: 10;
+            width: 90%;
+            max-width: 500px;
+            display: flex;
+            justify-content: space-between;
+            background: var(--panel-bg);
+            border: 1px solid var(--primary);
+            padding: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+
+        .stat-label { font-size: 0.8rem; color: #aaa; }
+        .stat-val { font-size: 1.2rem; font-weight: bold; }
+
+        /* --- GAME CONTAINER --- */
+        .screen {
+            position: relative;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 95%;
+            max-width: 500px;
+            background: var(--panel-bg);
+            border: 1px solid var(--primary);
+            padding: 20px 0;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+            /* Corner accents */
+            clip-path: polygon(
+                0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
+        }
+        .screen.visible { display: flex; animation: slideUp 0.3s ease-out; }
+
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        #center-msg {
+            font-size: 1.2rem; margin-bottom: 20px; letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--primary);
+            height: 1.5em;
         }
 
         #grid-container {
-            display: grid;
-            gap: 10px;
-            position: relative;
-            z-index: 20; /* Clickable */
-            margin-bottom: 20px;
+            display: grid; gap: 8px; margin-bottom: 20px;
         }
 
         .cell {
-            width: clamp(50px, 15vw, 90px);
-            height: clamp(50px, 15vw, 90px);
+            width: clamp(50px, 14vw, 80px);
+            height: clamp(50px, 14vw, 80px);
             background: rgba(0, 243, 255, 0.05);
-            border: 2px solid var(--primary);
-            border-radius: 8px;
+            border: 1px solid var(--primary);
             cursor: pointer;
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
-            transition: transform 0.1s;
+            transition: all 0.1s;
+            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.1);
+        }
+        .cell.active { 
+            background: #fff; 
+            box-shadow: 0 0 20px #fff, 0 0 40px var(--primary); 
+            border-color: #fff;
+            transform: scale(0.95);
+        }
+        .cell.error { 
+            background: var(--secondary); 
+            border-color: var(--secondary); 
+            box-shadow: 0 0 20px var(--secondary);
         }
 
-        .cell.active { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(0.95); }
-        .cell.error { background: var(--secondary); border-color: var(--secondary); }
-
-        /* --- SCREENS --- */
-        .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; z-index: 30; }
-        .screen.visible { display: flex; }
-
-        input, button, textarea {
-            font-family: "Courier New", monospace;
-            background: #000;
+        /* --- BUTTONS & INPUTS --- */
+        button {
+            background: rgba(0, 243, 255, 0.1);
             color: var(--primary);
-            border: 2px solid var(--primary);
-            padding: 15px;
-            margin: 10px;
-            font-size: 1rem;
-            border-radius: 4px;
-        }
-
-        button { 
-            cursor: pointer; 
-            font-weight: bold; 
+            border: 1px solid var(--primary);
+            padding: 12px 24px;
+            font-family: inherit;
+            font-weight: bold;
             text-transform: uppercase;
-            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+            cursor: pointer;
+            transition: 0.2s;
+            margin: 5px;
+            /* Angled corners */
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
         }
-        button:hover { background: var(--primary); color: #000; }
-        button:active { transform: translateY(2px); }
-        
-        textarea { width: 90%; resize: none; word-break: break-all; }
-        input { text-align: center; width: 80%; }
-        .error-text { color: var(--secondary); font-weight: bold; margin-top: 5px; }
+        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
+        button:active { transform: scale(0.98); }
 
-        /* --- VISUALS --- */
-        .scanline {
+        input, textarea {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #555;
+            color: #fff;
+            padding: 10px;
+            width: 80%;
+            font-family: inherit;
+            margin: 10px 0;
+            text-align: center;
+        }
+        input:focus { border-color: var(--primary); outline: none; }
+
+        .error-text { color: var(--secondary); font-size: 0.8rem; height: 1.2em; margin-top: 5px; }
+
+        /* --- BOOT ANIMATION --- */
+        #boot-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 1; /* Behind UI */
-            opacity: 0.5;
+            background: #000; z-index: 999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 1.5rem;
         }
+        .loading-bar { width: 200px; height: 4px; background: #333; margin-top: 20px; }
+        .loading-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.1s; }
 
-        #debug-log {
-            position: fixed; bottom: 0; left: 0; width: 100%; 
-            font-size: 0.7rem; color: #555; background: #000; 
-            padding: 2px; text-align: left; max-height: 50px; overflow: hidden;
-            z-index: 100;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
+    <div class="cyber-grid"></div>
     <div class="scanline"></div>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div>SYSTEM BOOT_</div>
+        <div class="loading-bar"><div class="loading-fill" id="boot-fill"></div></div>
+    </div>
 
     <!-- HUD -->
     <div id="ui-layer">
-        <div id="level-display">LVL: 01</div>
-        <div id="round-display">R: 1/6</div>
-    </div>
-
-    <!-- SCREEN 1: GAME -->
-    <div id="game-screen" class="screen visible">
-        <div id="center-msg">SYSTEM READY</div>
-        <div id="grid-container"></div>
-        <button id="start-btn">INITIALIZE LINK</button>
-    </div>
-
-    <!-- SCREEN 2: REWARD -->
-    <div id="reward-screen" class="screen">
-        <h2 style="color: #fff">CONNECTION LOST</h2>
-        <p id="end-reason">SIGNAL TERMINATED</p>
-        <div style="border: 1px solid #fff; padding: 10px; width: 80%;">
-            HIGHEST LEVEL: <span id="final-level" style="color:#fff">0</span>
+        <div>
+            <div class="stat-label">SECURITY LVL</div>
+            <div class="stat-val" id="level-display">01</div>
         </div>
-        <p>Enter Discord ID:</p>
-        <input type="text" id="discord-id" placeholder="User ID">
+        <div style="text-align: right;">
+            <div class="stat-label">PACKET</div>
+            <div class="stat-val" id="round-display">1/6</div>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen visible">
+        <div id="center-msg">READY</div>
+        <div id="grid-container"></div>
+        <button id="start-btn">INITIATE LINK</button>
+    </div>
+
+    <!-- REWARD SCREEN -->
+    <div id="reward-screen" class="screen">
+        <h2 style="color: #fff; margin:0">SIGNAL LOST</h2>
+        <p id="end-reason" style="color:var(--secondary)">CONNECTION TERMINATED</p>
+        
+        <div style="background:rgba(255,255,255,0.1); padding:10px; width:80%; margin-bottom:15px;">
+            HIGHEST LEVEL: <span id="final-level" style="color:#fff; font-weight:bold;">0</span>
+        </div>
+        
+        <input type="text" id="discord-id" placeholder="ENTER DISCORD ID" autocomplete="off">
         <div id="verify-error" class="error-text"></div>
+        
         <button id="gen-btn">ENCRYPT DATA</button>
-        <button id="restart-btn" style="border-color: #555; color: #777;">RETRY</button>
+        <button id="restart-btn" style="border-color: #555; color: #888;">RETRY CONNECTION</button>
     </div>
 
-    <!-- SCREEN 3: CODE -->
+    <!-- CODE SCREEN -->
     <div id="code-screen" class="screen">
-        <h2 style="color: var(--primary)">DATA ENCRYPTED</h2>
-        <textarea id="output-code" rows="4" readonly></textarea>
-        <button id="copy-btn">📋 COPY CODE</button>
-        <p style="font-size: 0.9rem;">Command: /claim [code]</p>
-        <button id="new-session-btn">NEW SESSION</button>
+        <h2 style="margin:0">DATA SECURED</h2>
+        <textarea id="output-code" rows="4" readonly onclick="this.select()"></textarea>
+        
+        <button id="copy-btn">📋 COPY KEY</button>
+        
+        <div style="font-size: 0.8rem; color:#aaa; margin-top:10px;">
+            PASTE IN DISCORD:<br>
+            <code style="color:#fff">/claim [code]</code>
+        </div>
+        
+        <button id="new-session-btn" style="margin-top:20px;">NEW SESSION</button>
     </div>
-
-    <!-- DEBUGGER -->
-    <div id="debug-log">Log initialized...</div>
 
     <script>
-        // --- ERROR LOGGING FOR DISCORD ---
-        function log(msg) {
-            const el = document.getElementById('debug-log');
-            el.innerHTML = msg + "<br>" + el.innerHTML;
-            console.log(msg);
-        }
-        window.onerror = function(msg, url, line) {
-            log("ERR: " + msg + " (L" + line + ")");
-            return false;
-        };
+        // --- BOOT ANIMATION ---
+        window.addEventListener('load', () => {
+            let w = 0;
+            const fill = document.getElementById('boot-fill');
+            const screen = document.getElementById('boot-screen');
+            const int = setInterval(() => {
+                w += Math.random() * 20;
+                if(w > 100) w = 100;
+                fill.style.width = w + '%';
+                if(w === 100) {
+                    clearInterval(int);
+                    setTimeout(() => {
+                        screen.style.opacity = '0';
+                        setTimeout(() => screen.remove(), 500);
+                    }, 300);
+                }
+            }, 50);
+        });
 
         const Game = (() => {
             const CONFIG = { rounds: 6, speed: 600 };
@@ -176,42 +258,32 @@
                 isLocked: true, gridSize: 3, bossMode: false
             };
 
-            // --- AUDIO SYSTEM (CRASH PROOF) ---
+            // Audio Logic (Crash Safe)
             let audioCtx = null;
-            let audioEnabled = false;
-
             const initAudio = () => {
-                try {
-                    const AC = window.AudioContext || window.webkitAudioContext;
-                    if (AC) {
-                        audioCtx = new AC();
-                        audioEnabled = true;
-                        log("Audio System: OK");
-                    } else {
-                        log("Audio System: Not Supported");
-                    }
-                } catch(e) {
-                    log("Audio Init Failed: " + e.message);
+                if(!audioCtx) {
+                    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+                    catch(e){}
+                }
+                if(audioCtx && audioCtx.state === 'suspended') {
+                    try { audioCtx.resume(); } catch(e){}
                 }
             };
 
             const playTone = (freq, type, dur) => {
-                if (!audioEnabled || !audioCtx) return;
+                if(!audioCtx) return;
                 try {
-                    if (audioCtx.state === 'suspended') audioCtx.resume();
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
                     osc.type = type;
                     osc.frequency.value = freq;
-                    gain.gain.value = 0.1;
+                    gain.gain.value = 0.05; // Lower volume
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
                     osc.connect(gain);
                     gain.connect(audioCtx.destination);
                     osc.start();
                     osc.stop(audioCtx.currentTime + dur);
-                } catch(e) { 
-                    // Silent fail
-                }
+                } catch(e){}
             };
 
             const Sounds = {
@@ -221,7 +293,6 @@
                 win: () => [500,600,800].forEach((f,i) => setTimeout(() => playTone(f,'square',0.1), i*100))
             };
 
-            // --- DOM ELEMENTS ---
             const els = {
                 grid: document.getElementById('grid-container'),
                 lvl: document.getElementById('level-display'),
@@ -230,7 +301,6 @@
                 err: document.getElementById('verify-error')
             };
 
-            // --- ENGINE ---
             const renderGrid = (size) => {
                 els.grid.innerHTML = '';
                 els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
@@ -238,52 +308,79 @@
                 for(let i=0; i<size*size; i++) {
                     const d = document.createElement('div');
                     d.className = 'cell';
-                    // Use standard click for compatibility
-                    d.onclick = () => handleInput(i); 
+                    // Event listeners
+                    const hit = (e) => { e.preventDefault(); handleInput(i); };
+                    d.addEventListener('mousedown', hit);
+                    d.addEventListener('touchstart', hit);
                     els.grid.appendChild(d);
                 }
             };
 
+            // --- CORE LOGIC ---
             const startGame = () => {
-                log("Game Initializing...");
                 initAudio();
                 document.getElementById('start-btn').style.display = 'none';
+                resetGameVars();
+                renderGrid(3);
+                nextRound();
+            };
+
+            const resetGameVars = () => {
                 state.level = 1;
                 state.round = 1;
                 state.sequence = [];
                 state.bossMode = false;
-                renderGrid(3);
-                nextRound();
+                document.body.style.filter = 'none';
+            };
+
+            // SOFT RESET (Fixes Discord Refresh Issue)
+            const softReset = () => {
+                // Hide all screens
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
+                // Show game screen
+                document.getElementById('game-screen').classList.add('visible');
+                // Reset UI
+                document.getElementById('start-btn').style.display = 'block';
+                els.grid.innerHTML = '';
+                els.msg.innerText = "READY";
+                els.lvl.innerText = "01";
+                els.rnd.innerText = "1/6";
+                document.getElementById('output-code').value = "";
+                document.getElementById('discord-id').value = "";
+                document.getElementById('copy-btn').innerText = "📋 COPY KEY";
+                // Reset vars
+                resetGameVars();
             };
 
             const nextRound = () => {
                 state.playerInput = [];
                 state.isLocked = true;
                 
-                // Difficulty
+                // Expansion
                 if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
                 if(state.level >= 15 && state.gridSize < 5) renderGrid(5);
 
-                // Boss Mode
+                // Boss Effect
                 if(state.level % 10 === 0) {
                     state.bossMode = true;
-                    document.body.classList.add('sabotage');
+                    document.body.style.filter = 'invert(1) hue-rotate(180deg)';
                     els.msg.innerText = "⚠️ INTRUSION ⚠️";
+                    els.msg.style.color = "var(--secondary)";
                 } else {
                     state.bossMode = false;
-                    document.body.classList.remove('sabotage');
-                    els.msg.innerText = "WATCH PATTERN";
+                    document.body.style.filter = 'none';
+                    els.msg.innerText = "WATCH";
+                    els.msg.style.color = "var(--primary)";
                 }
 
-                els.lvl.innerText = `LVL: ${state.level}`;
-                els.rnd.innerText = `R: ${state.round}/${CONFIG.rounds}`;
+                els.lvl.innerText = state.level.toString().padStart(2, '0');
+                els.rnd.innerText = `${state.round}/${CONFIG.rounds}`;
 
-                // Add Step
                 const max = state.gridSize * state.gridSize;
                 state.sequence.push(Math.floor(Math.random() * max));
 
-                let speed = Math.max(200, CONFIG.speed - (state.level * 20));
-                setTimeout(() => playSequence(speed), 1000);
+                let speed = Math.max(200, CONFIG.speed - (state.level * 15));
+                setTimeout(() => playSequence(speed), 800);
             };
 
             const playSequence = async (speed) => {
@@ -311,15 +408,13 @@
                 Sounds.tap(id);
 
                 state.playerInput.push(id);
-                
-                // Verify
                 const idx = state.playerInput.length - 1;
+
                 if(state.playerInput[idx] !== state.sequence[idx]) {
                     gameOver();
                     return;
                 }
 
-                // Complete
                 if(state.playerInput.length === state.sequence.length) {
                     state.isLocked = true;
                     if(state.round >= CONFIG.rounds) {
@@ -331,7 +426,7 @@
                         setTimeout(nextRound, 1000);
                     } else {
                         state.round++;
-                        setTimeout(nextRound, 500);
+                        setTimeout(nextRound, 400);
                     }
                 }
             };
@@ -341,24 +436,24 @@
                 els.msg.innerText = "ERROR";
                 Sounds.error();
                 document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
+                
                 setTimeout(() => {
-                    document.querySelector('.visible').classList.remove('visible');
+                    document.getElementById('game-screen').classList.remove('visible');
                     document.getElementById('reward-screen').classList.add('visible');
                     document.getElementById('final-level').innerText = state.level;
                     document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level}`;
                 }, 1000);
             };
 
-            // --- CRYPTO & UI ---
             const generateCode = () => {
                 const uid = document.getElementById('discord-id').value.trim();
                 els.err.innerText = "";
                 
                 if(uid.length < 15 || isNaN(uid)) { 
-                    els.err.innerText = "INVALID ID FORMAT"; return; 
+                    els.err.innerText = "INVALID DISCORD ID"; return; 
                 }
                 if(state.level < 2) { 
-                    els.err.innerText = "MUST BEAT LEVEL 1"; return; 
+                    els.err.innerText = "MUST REACH LEVEL 2"; return; 
                 }
 
                 const nonce = Math.random().toString(36).substr(2, 8);
@@ -375,23 +470,24 @@
                 const txt = document.getElementById("output-code");
                 txt.select();
                 txt.setSelectionRange(0, 99999);
-                navigator.clipboard.writeText(txt.value).then(() => {
+                
+                // Try modern clipboard API, fallback to execCommand
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(txt.value).then(() => {
+                         document.getElementById('copy-btn').innerText = "✅ COPIED";
+                    });
+                } else {
+                    document.execCommand("copy");
                     document.getElementById('copy-btn').innerText = "✅ COPIED";
-                }).catch(() => {
-                    document.execCommand("copy"); // Fallback
-                    document.getElementById('copy-btn').innerText = "✅ COPIED";
-                });
+                }
             };
 
-            // --- EVENT LISTENERS (SAFE) ---
-            window.onload = () => {
-                document.getElementById('start-btn').addEventListener('click', startGame);
-                document.getElementById('gen-btn').addEventListener('click', generateCode);
-                document.getElementById('copy-btn').addEventListener('click', copyCode);
-                document.getElementById('restart-btn').addEventListener('click', () => location.reload());
-                document.getElementById('new-session-btn').addEventListener('click', () => location.reload());
-                log("System Ready. Waiting for input.");
-            };
+            // Bindings
+            document.getElementById('start-btn').onclick = startGame;
+            document.getElementById('gen-btn').onclick = generateCode;
+            document.getElementById('copy-btn').onclick = copyCode;
+            document.getElementById('restart-btn').onclick = softReset;
+            document.getElementById('new-session-btn').onclick = softReset;
 
         })();
     </script>
