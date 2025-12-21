@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL V3</title>
+    <title>CYBER PROTOCOL V4</title>
     <style>
         :root {
             --primary: #00f3ff;
             --secondary: #ff0055;
             --bg: #050510;
-            --panel-bg: rgba(0, 20, 40, 0.8);
+            --panel-bg: rgba(0, 15, 30, 0.85);
+            --border: 1px solid rgba(0, 243, 255, 0.3);
         }
 
         body {
@@ -18,274 +19,327 @@
             font-family: "Courier New", Courier, monospace;
             margin: 0;
             height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
             overflow: hidden;
             user-select: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        /* --- BACKGROUND ANIMATION --- */
+        /* --- BACKGROUND --- */
         .cyber-grid {
             position: fixed; top: 0; left: 0; width: 200vw; height: 200vh;
             background-image: 
-                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
-            background-size: 40px 40px;
+                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
             transform: perspective(500px) rotateX(60deg) translateY(-100px) translateZ(-200px);
             animation: gridMove 20s linear infinite;
             z-index: 0;
             pointer-events: none;
         }
-
         @keyframes gridMove {
             0% { transform: perspective(500px) rotateX(60deg) translateY(0) translateZ(-200px); }
-            100% { transform: perspective(500px) rotateX(60deg) translateY(40px) translateZ(-200px); }
+            100% { transform: perspective(500px) rotateX(60deg) translateY(50px) translateZ(-200px); }
+        }
+        .vignette {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: radial-gradient(circle, transparent 40%, #000 100%);
+            z-index: 1; pointer-events: none;
         }
 
-        .scanline {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 99;
-            opacity: 0.6;
-        }
-
-        /* --- UI LAYER --- */
-        #ui-layer {
+        /* --- MAIN LAYOUT --- */
+        #main-layout {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            max-width: 1400px;
+            height: 100%;
             position: relative;
             z-index: 10;
-            width: 90%;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* --- SIDE PANELS (DESKTOP ONLY) --- */
+        .side-panel {
+            flex: 1;
+            height: 80%;
+            background: var(--panel-bg);
+            border: var(--border);
+            display: none; /* Hidden on mobile */
+            flex-direction: column;
+            padding: 15px;
+            font-size: 0.8rem;
+            color: #0aa;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            /* Decor */
+            clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
+        }
+
+        @media (min-width: 900px) {
+            .side-panel { display: flex; }
+        }
+
+        .panel-header {
+            border-bottom: 1px solid var(--primary);
+            margin-bottom: 10px; padding-bottom: 5px;
+            font-weight: bold; color: #fff;
+            letter-spacing: 2px;
+        }
+
+        .log-content {
+            flex: 1; overflow: hidden; opacity: 0.7;
+            display: flex; flex-direction: column-reverse; /* Bottom up */
+        }
+        .log-line { margin-bottom: 4px; border-left: 2px solid var(--secondary); padding-left: 5px; }
+        
+        .stat-bar {
+            height: 4px; background: #333; margin: 8px 0; width: 100%; position: relative;
+        }
+        .stat-fill {
+            height: 100%; background: var(--primary); width: 50%;
+            animation: pulseBar 2s infinite ease-in-out;
+        }
+        @keyframes pulseBar { 0% { width: 30%; } 50% { width: 70%; } 100% { width: 30%; } }
+
+        /* --- CENTER CONSOLE (GAME) --- */
+        .console-wrapper {
+            width: 100%;
             max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- UI HUD --- */
+        #ui-layer {
+            width: 100%;
             display: flex;
             justify-content: space-between;
             background: var(--panel-bg);
             border: 1px solid var(--primary);
-            padding: 10px;
+            padding: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
             backdrop-filter: blur(5px);
         }
+        .stat-group { display: flex; flex-direction: column; }
+        .stat-label { font-size: 0.7rem; color: #888; letter-spacing: 1px; }
+        .stat-val { font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px var(--primary); }
 
-        .stat-label { font-size: 0.8rem; color: #aaa; }
-        .stat-val { font-size: 1.2rem; font-weight: bold; }
-
-        /* --- GAME CONTAINER --- */
+        /* --- GAME SCREENS --- */
         .screen {
-            position: relative;
-            z-index: 20;
+            background: var(--panel-bg);
+            border: 1px solid var(--primary);
+            width: 100%;
+            padding: 30px 0;
             display: none;
             flex-direction: column;
             align-items: center;
-            width: 95%;
-            max-width: 500px;
-            background: var(--panel-bg);
-            border: 1px solid var(--primary);
-            padding: 20px 0;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            /* Corner accents */
-            clip-path: polygon(
-                0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 
-                0 100%, 0 20px
-            );
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            position: relative;
         }
-        .screen.visible { display: flex; animation: slideUp 0.3s ease-out; }
-
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
-        #center-msg {
-            font-size: 1.2rem; margin-bottom: 20px; letter-spacing: 2px;
-            text-shadow: 0 0 10px var(--primary);
-            height: 1.5em;
+        .screen::before {
+            content: ""; position: absolute; top:0; left:0; width: 10px; height: 10px;
+            border-top: 2px solid #fff; border-left: 2px solid #fff;
         }
+        .screen::after {
+            content: ""; position: absolute; bottom:0; right:0; width: 10px; height: 10px;
+            border-bottom: 2px solid #fff; border-right: 2px solid #fff;
+        }
+        .screen.visible { display: flex; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        #center-msg { font-size: 1.2rem; margin-bottom: 20px; font-weight: bold; letter-spacing: 2px; }
 
         #grid-container {
-            display: grid; gap: 8px; margin-bottom: 20px;
+            display: grid; gap: 8px; margin-bottom: 25px;
         }
 
         .cell {
             width: clamp(50px, 14vw, 80px);
             height: clamp(50px, 14vw, 80px);
             background: rgba(0, 243, 255, 0.05);
-            border: 1px solid var(--primary);
+            border: 1px solid rgba(0, 243, 255, 0.5);
             cursor: pointer;
-            transition: all 0.1s;
-            box-shadow: inset 0 0 10px rgba(0, 243, 255, 0.1);
+            transition: 0.1s;
         }
         .cell.active { 
-            background: #fff; 
+            background: #fff; border-color: #fff; 
             box-shadow: 0 0 20px #fff, 0 0 40px var(--primary); 
-            border-color: #fff;
-            transform: scale(0.95);
+            transform: scale(0.95); 
         }
         .cell.error { 
-            background: var(--secondary); 
-            border-color: var(--secondary); 
-            box-shadow: 0 0 20px var(--secondary);
+            background: var(--secondary); border-color: var(--secondary); 
+            box-shadow: 0 0 20px var(--secondary); 
         }
 
-        /* --- BUTTONS & INPUTS --- */
+        /* --- INPUTS & BUTTONS --- */
         button {
-            background: rgba(0, 243, 255, 0.1);
+            background: rgba(0, 243, 255, 0.15);
             color: var(--primary);
             border: 1px solid var(--primary);
-            padding: 12px 24px;
+            padding: 12px 30px;
             font-family: inherit;
             font-weight: bold;
+            font-size: 1rem;
             text-transform: uppercase;
             cursor: pointer;
             transition: 0.2s;
-            margin: 5px;
-            /* Angled corners */
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            margin-top: 10px;
         }
-        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
-        button:active { transform: scale(0.98); }
-
+        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
+        
         input, textarea {
-            background: rgba(0,0,0,0.6);
+            background: rgba(0,0,0,0.8);
             border: 1px solid #555;
             color: #fff;
-            padding: 10px;
+            padding: 12px;
             width: 80%;
             font-family: inherit;
-            margin: 10px 0;
+            font-size: 1.1rem;
             text-align: center;
+            margin: 10px 0;
         }
         input:focus { border-color: var(--primary); outline: none; }
-
-        .error-text { color: var(--secondary); font-size: 0.8rem; height: 1.2em; margin-top: 5px; }
-
-        /* --- BOOT ANIMATION --- */
-        #boot-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #000; z-index: 999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            font-size: 1.5rem;
-        }
-        .loading-bar { width: 200px; height: 4px; background: #333; margin-top: 20px; }
-        .loading-fill { width: 0%; height: 100%; background: var(--primary); transition: width 0.1s; }
+        
+        .error-text { color: var(--secondary); font-size: 0.9rem; min-height: 1.2em; margin-bottom: 10px; }
 
     </style>
 </head>
 <body>
     <div class="cyber-grid"></div>
-    <div class="scanline"></div>
+    <div class="vignette"></div>
 
-    <!-- BOOT SCREEN -->
-    <div id="boot-screen">
-        <div>SYSTEM BOOT_</div>
-        <div class="loading-bar"><div class="loading-fill" id="boot-fill"></div></div>
-    </div>
-
-    <!-- HUD -->
-    <div id="ui-layer">
-        <div>
-            <div class="stat-label">SECURITY LVL</div>
-            <div class="stat-val" id="level-display">01</div>
+    <div id="main-layout">
+        
+        <!-- LEFT PANEL (Desktop) -->
+        <div class="side-panel left">
+            <div class="panel-header">SYS_LOGS</div>
+            <div class="log-content" id="sys-log">
+                <div class="log-line">INIT_PROTOCOL... OK</div>
+                <div class="log-line">CONNECTING...</div>
+            </div>
         </div>
-        <div style="text-align: right;">
-            <div class="stat-label">PACKET</div>
-            <div class="stat-val" id="round-display">1/6</div>
-        </div>
-    </div>
 
-    <!-- GAME SCREEN -->
-    <div id="game-screen" class="screen visible">
-        <div id="center-msg">READY</div>
-        <div id="grid-container"></div>
-        <button id="start-btn">INITIATE LINK</button>
-    </div>
+        <!-- CENTER CONSOLE -->
+        <div class="console-wrapper">
+            
+            <!-- HUD -->
+            <div id="ui-layer">
+                <div class="stat-group">
+                    <span class="stat-label">CURRENT LVL</span>
+                    <span class="stat-val" id="level-display">01</span>
+                </div>
+                <div class="stat-group" style="align-items: flex-end;">
+                    <span class="stat-label">PACKET PROGRESS</span>
+                    <span class="stat-val" id="round-display">1/6</span>
+                </div>
+            </div>
 
-    <!-- REWARD SCREEN -->
-    <div id="reward-screen" class="screen">
-        <h2 style="color: #fff; margin:0">SIGNAL LOST</h2>
-        <p id="end-reason" style="color:var(--secondary)">CONNECTION TERMINATED</p>
-        
-        <div style="background:rgba(255,255,255,0.1); padding:10px; width:80%; margin-bottom:15px;">
-            HIGHEST LEVEL: <span id="final-level" style="color:#fff; font-weight:bold;">0</span>
-        </div>
-        
-        <input type="text" id="discord-id" placeholder="ENTER DISCORD ID" autocomplete="off">
-        <div id="verify-error" class="error-text"></div>
-        
-        <button id="gen-btn">ENCRYPT DATA</button>
-        <button id="restart-btn" style="border-color: #555; color: #888;">RETRY CONNECTION</button>
-    </div>
+            <!-- GAME SCREEN -->
+            <div id="game-screen" class="screen visible">
+                <div id="center-msg">ESTABLISHING LINK...</div>
+                <div id="grid-container"></div>
+                <button id="start-btn">INITIALIZE</button>
+            </div>
 
-    <!-- CODE SCREEN -->
-    <div id="code-screen" class="screen">
-        <h2 style="margin:0">DATA SECURED</h2>
-        <textarea id="output-code" rows="4" readonly onclick="this.select()"></textarea>
-        
-        <button id="copy-btn">📋 COPY KEY</button>
-        
-        <div style="font-size: 0.8rem; color:#aaa; margin-top:10px;">
-            PASTE IN DISCORD:<br>
-            <code style="color:#fff">/claim [code]</code>
+            <!-- REWARD SCREEN -->
+            <div id="reward-screen" class="screen">
+                <h2 style="color:var(--secondary); margin:0">CONNECTION SEVERED</h2>
+                <p id="end-reason" style="opacity:0.8; margin-bottom:20px;">SIGNAL LOST</p>
+                
+                <div style="background:rgba(255,255,255,0.05); border:1px solid #444; padding:15px; width:80%; margin-bottom:20px;">
+                    <div style="font-size:0.8rem; color:#aaa;">LEVELS CLEARED</div>
+                    <div id="final-level" style="font-size:2rem; color:#fff; font-weight:bold;">0</div>
+                </div>
+
+                <input type="text" id="discord-id" placeholder="ENTER DISCORD ID" autocomplete="off">
+                <div id="verify-error" class="error-text"></div>
+                
+                <button id="gen-btn">GENERATE KEY</button>
+                <button id="restart-btn" style="border-color: #555; color: #888; background:transparent; font-size:0.8rem; padding:8px 16px;">RETRY</button>
+            </div>
+
+            <!-- CODE SCREEN -->
+            <div id="code-screen" class="screen">
+                <h2 style="margin:0; color:var(--primary)">KEY GENERATED</h2>
+                <textarea id="output-code" rows="4" readonly onclick="this.select()"></textarea>
+                
+                <button id="copy-btn">📋 COPY KEY</button>
+                
+                <div style="margin-top:15px; font-size:0.8rem; color:#aaa;">
+                    USE COMMAND:<br>
+                    <code style="color:#fff; font-size:1rem;">/claim [code]</code>
+                </div>
+                
+                <button id="new-session-btn" style="margin-top:20px; border-color:#555;">NEW SESSION</button>
+            </div>
+
         </div>
-        
-        <button id="new-session-btn" style="margin-top:20px;">NEW SESSION</button>
+
+        <!-- RIGHT PANEL (Desktop) -->
+        <div class="side-panel right">
+            <div class="panel-header">NET_STATS</div>
+            <div style="margin-top:10px;">
+                <div>CPU_LOAD</div>
+                <div class="stat-bar"><div class="stat-fill" style="width:45%; animation-duration:1.5s"></div></div>
+                <div>MEM_ALLOC</div>
+                <div class="stat-bar"><div class="stat-fill" style="width:70%; animation-duration:3s"></div></div>
+                <div>ENCRYPTION</div>
+                <div class="stat-bar"><div class="stat-fill" style="width:90%; animation-duration:5s"></div></div>
+            </div>
+            <div style="margin-top:auto; font-size:0.7rem; opacity:0.5;">
+                SECURE CONNECTION<br>
+                PORT: 443<br>
+                STATUS: ONLINE
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // --- BOOT ANIMATION ---
-        window.addEventListener('load', () => {
-            let w = 0;
-            const fill = document.getElementById('boot-fill');
-            const screen = document.getElementById('boot-screen');
-            const int = setInterval(() => {
-                w += Math.random() * 20;
-                if(w > 100) w = 100;
-                fill.style.width = w + '%';
-                if(w === 100) {
-                    clearInterval(int);
-                    setTimeout(() => {
-                        screen.style.opacity = '0';
-                        setTimeout(() => screen.remove(), 500);
-                    }, 300);
-                }
-            }, 50);
-        });
+        // --- DECORATIVE LOGS ---
+        const logContainer = document.getElementById('sys-log');
+        const phrases = ["PACKET_SENT", "PING: 12ms", "ENCRYPTING...", "DATA_STREAM_OK", "CHECK_SUM: VALID", "UPLOADING...", "RECV_PACKET"];
+        setInterval(() => {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerText = phrases[Math.floor(Math.random() * phrases.length)];
+            logContainer.prepend(line);
+            if(logContainer.children.length > 15) logContainer.lastChild.remove();
+        }, 800);
 
+        // --- GAME ENGINE ---
         const Game = (() => {
             const CONFIG = { rounds: 6, speed: 600 };
-            
             let state = {
                 level: 1, round: 1, sequence: [], playerInput: [],
                 isLocked: true, gridSize: 3, bossMode: false
             };
 
-            // Audio Logic (Crash Safe)
+            // Audio
             let audioCtx = null;
             const initAudio = () => {
-                if(!audioCtx) {
-                    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
-                    catch(e){}
-                }
-                if(audioCtx && audioCtx.state === 'suspended') {
-                    try { audioCtx.resume(); } catch(e){}
-                }
+                if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
+                if(audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e){} }
             };
-
             const playTone = (freq, type, dur) => {
                 if(!audioCtx) return;
                 try {
                     const osc = audioCtx.createOscillator();
                     const gain = audioCtx.createGain();
-                    osc.type = type;
-                    osc.frequency.value = freq;
-                    gain.gain.value = 0.05; // Lower volume
+                    osc.type = type; osc.frequency.value = freq; gain.gain.value = 0.05;
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-                    osc.connect(gain);
-                    gain.connect(audioCtx.destination);
-                    osc.start();
-                    osc.stop(audioCtx.currentTime + dur);
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + dur);
                 } catch(e){}
             };
-
             const Sounds = {
                 tap: (i) => playTone(400 + (i*50), 'sine', 0.1),
                 flash: (i) => playTone(400 + (i*50), 'triangle', 0.15),
@@ -293,6 +347,7 @@
                 win: () => [500,600,800].forEach((f,i) => setTimeout(() => playTone(f,'square',0.1), i*100))
             };
 
+            // DOM
             const els = {
                 grid: document.getElementById('grid-container'),
                 lvl: document.getElementById('level-display'),
@@ -308,7 +363,6 @@
                 for(let i=0; i<size*size; i++) {
                     const d = document.createElement('div');
                     d.className = 'cell';
-                    // Event listeners
                     const hit = (e) => { e.preventDefault(); handleInput(i); };
                     d.addEventListener('mousedown', hit);
                     d.addEventListener('touchstart', hit);
@@ -316,51 +370,33 @@
                 }
             };
 
-            // --- CORE LOGIC ---
+            const softReset = () => {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
+                document.getElementById('game-screen').classList.add('visible');
+                document.getElementById('start-btn').style.display = 'block';
+                els.grid.innerHTML = ''; els.msg.innerText = "READY";
+                els.lvl.innerText = "01"; els.rnd.innerText = "1/6";
+                document.getElementById('output-code').value = "";
+                document.getElementById('discord-id').value = "";
+                document.getElementById('copy-btn').innerText = "📋 COPY KEY";
+                state.level = 1; state.round = 1; state.sequence = []; state.bossMode = false;
+                document.body.style.filter = 'none';
+            };
+
             const startGame = () => {
                 initAudio();
                 document.getElementById('start-btn').style.display = 'none';
-                resetGameVars();
+                softReset(); 
+                document.getElementById('start-btn').style.display = 'none'; // hide again
                 renderGrid(3);
                 nextRound();
             };
 
-            const resetGameVars = () => {
-                state.level = 1;
-                state.round = 1;
-                state.sequence = [];
-                state.bossMode = false;
-                document.body.style.filter = 'none';
-            };
-
-            // SOFT RESET (Fixes Discord Refresh Issue)
-            const softReset = () => {
-                // Hide all screens
-                document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
-                // Show game screen
-                document.getElementById('game-screen').classList.add('visible');
-                // Reset UI
-                document.getElementById('start-btn').style.display = 'block';
-                els.grid.innerHTML = '';
-                els.msg.innerText = "READY";
-                els.lvl.innerText = "01";
-                els.rnd.innerText = "1/6";
-                document.getElementById('output-code').value = "";
-                document.getElementById('discord-id').value = "";
-                document.getElementById('copy-btn').innerText = "📋 COPY KEY";
-                // Reset vars
-                resetGameVars();
-            };
-
             const nextRound = () => {
-                state.playerInput = [];
-                state.isLocked = true;
-                
-                // Expansion
+                state.playerInput = []; state.isLocked = true;
                 if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
                 if(state.level >= 15 && state.gridSize < 5) renderGrid(5);
 
-                // Boss Effect
                 if(state.level % 10 === 0) {
                     state.bossMode = true;
                     document.body.style.filter = 'invert(1) hue-rotate(180deg)';
@@ -369,16 +405,14 @@
                 } else {
                     state.bossMode = false;
                     document.body.style.filter = 'none';
-                    els.msg.innerText = "WATCH";
+                    els.msg.innerText = "OBSERVE";
                     els.msg.style.color = "var(--primary)";
                 }
 
                 els.lvl.innerText = state.level.toString().padStart(2, '0');
                 els.rnd.innerText = `${state.round}/${CONFIG.rounds}`;
 
-                const max = state.gridSize * state.gridSize;
-                state.sequence.push(Math.floor(Math.random() * max));
-
+                state.sequence.push(Math.floor(Math.random() * (state.gridSize * state.gridSize)));
                 let speed = Math.max(200, CONFIG.speed - (state.level * 15));
                 setTimeout(() => playSequence(speed), 800);
             };
@@ -389,58 +423,44 @@
                         const c = els.grid.children[id];
                         if(c) c.classList.add('active');
                         Sounds.flash(id);
-                        setTimeout(() => {
-                            if(c) c.classList.remove('active');
-                            setTimeout(r, speed/2);
-                        }, speed/2);
+                        setTimeout(() => { if(c) c.classList.remove('active'); setTimeout(r, speed/2); }, speed/2);
                     });
                 }
-                state.isLocked = false;
-                els.msg.innerText = "REPEAT";
+                state.isLocked = false; els.msg.innerText = "REPEAT";
             };
 
             const handleInput = (id) => {
                 if(state.isLocked) return;
-                
                 const c = els.grid.children[id];
                 c.classList.add('active');
                 setTimeout(() => c.classList.remove('active'), 150);
                 Sounds.tap(id);
-
                 state.playerInput.push(id);
                 const idx = state.playerInput.length - 1;
 
                 if(state.playerInput[idx] !== state.sequence[idx]) {
-                    gameOver();
-                    return;
+                    gameOver(); return;
                 }
-
                 if(state.playerInput.length === state.sequence.length) {
                     state.isLocked = true;
                     if(state.round >= CONFIG.rounds) {
-                        state.level++;
-                        state.round = 1;
-                        state.sequence = [];
-                        els.msg.innerText = "UPLOADED";
-                        Sounds.win();
+                        state.level++; state.round = 1; state.sequence = [];
+                        els.msg.innerText = "UPLOADED"; Sounds.win();
                         setTimeout(nextRound, 1000);
                     } else {
-                        state.round++;
-                        setTimeout(nextRound, 400);
+                        state.round++; setTimeout(nextRound, 400);
                     }
                 }
             };
 
             const gameOver = () => {
-                state.isLocked = true;
-                els.msg.innerText = "ERROR";
-                Sounds.error();
+                state.isLocked = true; els.msg.innerText = "ERROR"; Sounds.error();
                 document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
-                
                 setTimeout(() => {
                     document.getElementById('game-screen').classList.remove('visible');
                     document.getElementById('reward-screen').classList.add('visible');
-                    document.getElementById('final-level').innerText = state.level;
+                    // LOGIC FIX: Show Levels Cleared (Level - 1)
+                    document.getElementById('final-level').innerText = Math.max(0, state.level - 1);
                     document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level}`;
                 }, 1000);
             };
@@ -448,17 +468,20 @@
             const generateCode = () => {
                 const uid = document.getElementById('discord-id').value.trim();
                 els.err.innerText = "";
+                if(uid.length < 15 || isNaN(uid)) { els.err.innerText = "INVALID ID"; return; }
                 
-                if(uid.length < 15 || isNaN(uid)) { 
-                    els.err.innerText = "INVALID DISCORD ID"; return; 
-                }
-                if(state.level < 2) { 
-                    els.err.innerText = "MUST REACH LEVEL 2"; return; 
+                // Logic: Must clear at least level 1 (So state.level must be > 1)
+                // The code will encode state.level - 1 (The CLEARED level)
+                const cleared = state.level - 1;
+                
+                if(cleared < 1) { 
+                    els.err.innerText = "NO LEVELS CLEARED"; return; 
                 }
 
                 const nonce = Math.random().toString(36).substr(2, 8);
                 const today = new Date().toISOString().split('T')[0];
-                const raw = `${uid}::${state.level}::${nonce}::${today}::CYBER_TRIVIA_SECRET_KEY_99`;
+                // ENCODING CLEARED LEVEL
+                const raw = `${uid}::${cleared}::${nonce}::${today}::CYBER_TRIVIA_SECRET_KEY_99`;
                 const code = btoa(raw);
 
                 document.getElementById('reward-screen').classList.remove('visible');
@@ -468,27 +491,19 @@
 
             const copyCode = () => {
                 const txt = document.getElementById("output-code");
-                txt.select();
-                txt.setSelectionRange(0, 99999);
-                
-                // Try modern clipboard API, fallback to execCommand
+                txt.select(); txt.setSelectionRange(0, 99999);
                 if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(txt.value).then(() => {
-                         document.getElementById('copy-btn').innerText = "✅ COPIED";
-                    });
+                    navigator.clipboard.writeText(txt.value).then(() => document.getElementById('copy-btn').innerText = "✅ COPIED");
                 } else {
-                    document.execCommand("copy");
-                    document.getElementById('copy-btn').innerText = "✅ COPIED";
+                    document.execCommand("copy"); document.getElementById('copy-btn').innerText = "✅ COPIED";
                 }
             };
 
-            // Bindings
             document.getElementById('start-btn').onclick = startGame;
             document.getElementById('gen-btn').onclick = generateCode;
             document.getElementById('copy-btn').onclick = copyCode;
             document.getElementById('restart-btn').onclick = softReset;
             document.getElementById('new-session-btn').onclick = softReset;
-
         })();
     </script>
 </body>
