@@ -10,7 +10,7 @@
             --primary: #00f3ff;
             --secondary: #ff0055;
             --bg: #050510;
-            --grid-size: 3; /* Dynamic */
+            --grid-size: 3;
         }
 
         body {
@@ -28,7 +28,6 @@
             transition: filter 0.2s;
         }
 
-        /* --- BOSS MODE EFFECTS --- */
         body.sabotage {
             animation: glitch-screen 2s infinite;
             filter: invert(1) contrast(1.2);
@@ -41,7 +40,6 @@
             6% { transform: translate(0,0); }
         }
 
-        /* --- UI --- */
         #ui-layer {
             position: absolute;
             top: 20px;
@@ -60,12 +58,12 @@
             text-align: center;
         }
 
-        /* --- DYNAMIC GRID --- */
         #grid-container {
             display: grid;
             gap: 10px;
-            /* Grid layout set via JS */
             transition: all 0.5s;
+            position: relative;
+            z-index: 20; /* Ensure grid is clickable */
         }
 
         .cell {
@@ -79,21 +77,10 @@
             transition: background 0.1s, transform 0.1s;
         }
 
-        .cell.active {
-            background: #fff;
-            box-shadow: 0 0 30px #fff;
-            transform: scale(0.95);
-            border-color: #fff;
-        }
+        .cell.active { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(0.95); border-color: #fff; }
+        .cell.error { background: var(--secondary); border-color: var(--secondary); box-shadow: 0 0 30px var(--secondary); }
 
-        .cell.error {
-            background: var(--secondary);
-            border-color: var(--secondary);
-            box-shadow: 0 0 30px var(--secondary);
-        }
-
-        /* --- SCREENS --- */
-        .screen { display: none; text-align: center; width: 100%; max-width: 500px; }
+        .screen { display: none; text-align: center; width: 100%; max-width: 500px; z-index: 30; }
         .screen.visible { display: flex; flex-direction: column; align-items: center; }
 
         input, button, textarea {
@@ -115,15 +102,18 @@
         }
         button:hover { background: var(--primary); color: #000; }
         
-        textarea { width: 90%; resize: none; background: rgba(0,0,0,0.5); font-size: 0.8rem; }
+        textarea { width: 90%; resize: none; background: rgba(0,0,0,0.5); font-size: 0.8rem; word-break: break-all; }
         input { text-align: center; width: 80%; }
+
+        /* Error Message in UI */
+        .error-text { color: var(--secondary); font-size: 0.9rem; margin-top: 5px; min-height: 1.2em; }
 
         .scanline {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
             background-size: 100% 4px;
             pointer-events: none;
-            z-index: 99;
+            z-index: 5; /* Lowered z-index to prevent click blocking */
         }
     </style>
 </head>
@@ -155,6 +145,7 @@
         
         <p>Enter Discord ID to secure data:</p>
         <input type="text" id="discord-id" placeholder="User ID (Required)">
+        <div id="verify-error" class="error-text"></div>
         <button onclick="Game.generateCode()">ENCRYPT & CLAIM</button>
         <button onclick="location.reload()" style="border-color: #555; color: #777; margin-top:5px;">RESTART (LOSE DATA)</button>
     </div>
@@ -163,50 +154,60 @@
     <div id="code-screen" class="screen">
         <h2 style="color: var(--primary)">DATA ENCRYPTED</h2>
         <textarea id="output-code" rows="4" readonly></textarea>
+        
+        <!-- NEW COPY BUTTON -->
+        <button onclick="Game.copyToClip()" id="copy-btn">📋 COPY CODE</button>
+        
         <p>Run: <code>/claim [code]</code></p>
         <button onclick="location.reload()">NEW SESSION</button>
     </div>
 
     <script>
-        /**
-         * CYBER PROTOCOL GAME ENGINE
-         * Stores progress in Closure Scope (RAM). Refreshes wipe data.
-         */
         const Game = (() => {
-            // Configuration
             const CONFIG = {
                 roundsPerLevel: 6,
                 baseSpeed: 600,
                 bossInterval: 10
             };
 
-            // State (RAM Storage)
             let state = {
                 level: 1,
                 round: 1,
                 sequence: [],
                 playerInput: [],
                 isLocked: true,
-                gridSize: 3, // 3x3 start
+                gridSize: 3,
                 bossMode: false
             };
 
-            // Audio Context
-            const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            // Audio Context - Safe Init
+            let AudioCtx = null;
             
-            // --- AUDIO SYSTEM ---
+            const initAudio = () => {
+                if (!AudioCtx) {
+                    try {
+                        AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    } catch (e) { console.log("Audio not supported"); }
+                }
+                if (AudioCtx && AudioCtx.state === 'suspended') {
+                    try { AudioCtx.resume(); } catch(e){}
+                }
+            };
+
             const playTone = (freq, type, dur) => {
-                if(AudioCtx.state === 'suspended') AudioCtx.resume();
-                const osc = AudioCtx.createOscillator();
-                const gain = AudioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, AudioCtx.currentTime);
-                gain.gain.setValueAtTime(0.1, AudioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + dur);
-                osc.connect(gain);
-                gain.connect(AudioCtx.destination);
-                osc.start();
-                osc.stop(AudioCtx.currentTime + dur);
+                if(!AudioCtx) return;
+                try {
+                    const osc = AudioCtx.createOscillator();
+                    const gain = AudioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, AudioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.1, AudioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + dur);
+                    osc.connect(gain);
+                    gain.connect(AudioCtx.destination);
+                    osc.start();
+                    osc.stop(AudioCtx.currentTime + dur);
+                } catch(e) {}
             };
 
             const Sounds = {
@@ -217,53 +218,48 @@
                 win: () => [500,600,800].forEach((f,i) => setTimeout(() => playTone(f,'square',0.1), i*100))
             };
 
-            // --- GRID ENGINE ---
             const els = {
                 grid: document.getElementById('grid-container'),
                 lvl: document.getElementById('level-display'),
                 rnd: document.getElementById('round-display'),
                 msg: document.getElementById('center-msg'),
-                startBtn: document.getElementById('start-btn')
+                startBtn: document.getElementById('start-btn'),
+                err: document.getElementById('verify-error')
             };
 
             const renderGrid = (size) => {
                 els.grid.innerHTML = '';
                 els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
                 state.gridSize = size;
-                
                 const totalCells = size * size;
                 for(let i=0; i<totalCells; i++) {
                     const d = document.createElement('div');
                     d.className = 'cell';
                     d.dataset.id = i;
-                    // Event Listeners
                     d.addEventListener('mousedown', () => handleInput(i));
                     d.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(i); });
                     els.grid.appendChild(d);
                 }
             };
 
-            // --- GAME LOGIC ---
             const init = () => {
+                initAudio(); // Try to start audio, but proceed even if it fails
                 els.startBtn.style.display = 'none';
                 state.level = 1;
                 state.round = 1;
                 state.sequence = [];
                 state.bossMode = false;
                 document.body.classList.remove('sabotage');
-                renderGrid(3); // Start 3x3
+                renderGrid(3);
                 nextRound();
             };
 
             const nextRound = () => {
                 state.playerInput = [];
                 state.isLocked = true;
-                
-                // Difficulty Scaling
                 if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
                 if(state.level >= 15 && state.gridSize < 5) renderGrid(5);
 
-                // Boss Mode Check
                 if(state.level % CONFIG.bossInterval === 0 && !state.bossMode) {
                     state.bossMode = true;
                     document.body.classList.add('sabotage');
@@ -275,17 +271,14 @@
                     els.msg.innerText = "WATCH PATTERN";
                 }
 
-                // Update UI
                 els.lvl.innerText = `LVL: ${state.level.toString().padStart(2,'0')}`;
                 els.rnd.innerText = `R: ${state.round}/${CONFIG.roundsPerLevel}`;
 
-                // Add Step
                 const max = state.gridSize * state.gridSize;
                 state.sequence.push(Math.floor(Math.random() * max));
 
-                // Play Speed
                 let speed = Math.max(200, CONFIG.baseSpeed - (state.level * 20));
-                if(state.bossMode) speed = 250; // Fast during boss
+                if(state.bossMode) speed = 250; 
 
                 setTimeout(() => playSequence(speed), 1000);
             };
@@ -305,39 +298,32 @@
                     Sounds.flash(id);
                     setTimeout(() => {
                         if(c) c.classList.remove('active');
-                        setTimeout(r, speed * 0.5); // Gap
+                        setTimeout(r, speed * 0.5);
                     }, speed * 0.5);
                 });
             };
 
             const handleInput = (id) => {
                 if(state.isLocked) return;
-                
                 const c = els.grid.children[id];
                 c.classList.add('active');
                 setTimeout(() => c.classList.remove('active'), 150);
                 Sounds.tap(id);
 
                 state.playerInput.push(id);
-
-                // Validation
                 const idx = state.playerInput.length - 1;
                 if(state.playerInput[idx] !== state.sequence[idx]) {
                     gameOver();
                     return;
                 }
 
-                // Round Complete
                 if(state.playerInput.length === state.sequence.length) {
                     state.isLocked = true;
                     if(state.round >= CONFIG.roundsPerLevel) {
-                        // Level Up
                         state.level++;
                         state.round = 1;
-                        state.sequence = []; // Reset sequence for new level? 
-                        // Actually, most games keep adding. Let's reset to keep it playable.
                         state.sequence = []; 
-                        els.msg.innerText = "LEVEL UPLOAD COMPLETE";
+                        els.msg.innerText = "UPLOAD COMPLETE";
                         Sounds.win();
                         setTimeout(nextRound, 1000);
                     } else {
@@ -352,38 +338,35 @@
                 els.msg.innerText = "FATAL ERROR";
                 document.body.classList.remove('sabotage');
                 Sounds.error();
-                
                 document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
-                
                 setTimeout(() => {
                     document.getElementById('game-screen').classList.remove('visible');
                     document.getElementById('reward-screen').classList.add('visible');
                     document.getElementById('final-level').innerText = state.level;
-                    document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level} // ROUND ${state.round}`;
+                    document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level}`;
                 }, 1500);
             };
 
-            // --- SECURITY & EXPORT ---
             const generateCode = () => {
                 const uid = document.getElementById('discord-id').value.trim();
-                if(uid.length < 15 || isNaN(uid)) { alert("INVALID ID"); return; }
+                els.err.innerText = "";
                 
-                const lvl = state.level; // From RAM
+                if(uid.length < 15 || isNaN(uid)) { 
+                    // REPLACED ALERT WITH TEXT
+                    els.err.innerText = "INVALID ID FORMAT"; 
+                    return; 
+                }
                 
-                // Anti-Cheat: Minimum effort check
+                const lvl = state.level;
                 if(lvl < 2) {
-                    alert("PROTOCOL FAILED: You must beat at least Level 1.");
-                    location.reload();
+                    els.err.innerText = "LEVEL 2 REQUIRED";
                     return;
                 }
 
-                // NONCE: Random ID to prevent reusing the exact same code string
                 const nonce = Math.random().toString(36).substring(2, 10);
-                
                 const today = new Date().toISOString().split('T')[0];
                 const salt = "CYBER_TRIVIA_SECRET_KEY_99";
                 
-                // Format: User::Level::Nonce::Date::Salt
                 const raw = `${uid}::${lvl}::${nonce}::${today}::${salt}`;
                 const code = btoa(raw);
 
@@ -392,7 +375,23 @@
                 document.getElementById('output-code').value = code;
             };
 
-            return { init, generateCode };
+            // NEW: COPY FUNCTION
+            const copyToClip = () => {
+                const copyText = document.getElementById("output-code");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999); // Mobile support
+                
+                try {
+                    navigator.clipboard.writeText(copyText.value);
+                    document.getElementById("copy-btn").innerText = "✅ COPIED";
+                } catch(err) {
+                    document.execCommand("copy"); // Fallback
+                    document.getElementById("copy-btn").innerText = "✅ COPIED";
+                }
+                setTimeout(() => document.getElementById("copy-btn").innerText = "📋 COPY CODE", 2000);
+            };
+
+            return { init, generateCode, copyToClip };
         })();
     </script>
 </body>
