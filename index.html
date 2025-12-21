@@ -3,20 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL // INFINITE</title>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>CYBER PROTOCOL</title>
     <style>
         :root {
             --primary: #00f3ff;
             --secondary: #ff0055;
             --bg: #050510;
-            --grid-size: 3;
         }
 
         body {
             background-color: var(--bg);
             color: var(--primary);
-            font-family: 'Share Tech Mono', monospace;
+            font-family: "Courier New", Courier, monospace; /* Safe System Font */
             margin: 0;
             height: 100vh;
             display: flex;
@@ -25,29 +23,16 @@
             justify-content: center;
             overflow: hidden;
             user-select: none;
-            transition: filter 0.2s;
         }
 
-        body.sabotage {
-            animation: glitch-screen 2s infinite;
-            filter: invert(1) contrast(1.2);
-        }
-
-        @keyframes glitch-screen {
-            0% { transform: translate(0,0); }
-            2% { transform: translate(-2px, 2px); }
-            4% { transform: translate(2px, -2px); }
-            6% { transform: translate(0,0); }
-        }
-
+        /* --- LAYOUT --- */
         #ui-layer {
-            position: absolute;
-            top: 20px;
             width: 90%;
             display: flex;
             justify-content: space-between;
             font-size: 1.2rem;
             text-shadow: 0 0 5px var(--primary);
+            margin-bottom: 10px;
             z-index: 10;
         }
 
@@ -56,14 +41,16 @@
             font-size: 1.5rem;
             height: 2rem;
             text-align: center;
+            font-weight: bold;
+            z-index: 10;
         }
 
         #grid-container {
             display: grid;
             gap: 10px;
-            transition: all 0.5s;
             position: relative;
-            z-index: 20; /* Ensure grid is clickable */
+            z-index: 20; /* Clickable */
+            margin-bottom: 20px;
         }
 
         .cell {
@@ -74,46 +61,56 @@
             border-radius: 8px;
             cursor: pointer;
             box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
-            transition: background 0.1s, transform 0.1s;
+            transition: transform 0.1s;
         }
 
-        .cell.active { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(0.95); border-color: #fff; }
-        .cell.error { background: var(--secondary); border-color: var(--secondary); box-shadow: 0 0 30px var(--secondary); }
+        .cell.active { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(0.95); }
+        .cell.error { background: var(--secondary); border-color: var(--secondary); }
 
-        .screen { display: none; text-align: center; width: 100%; max-width: 500px; z-index: 30; }
-        .screen.visible { display: flex; flex-direction: column; align-items: center; }
+        /* --- SCREENS --- */
+        .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 500px; z-index: 30; }
+        .screen.visible { display: flex; }
 
         input, button, textarea {
-            font-family: 'Share Tech Mono';
-            background: transparent;
+            font-family: "Courier New", monospace;
+            background: #000;
             color: var(--primary);
-            border: 1px solid var(--primary);
-            padding: 10px;
+            border: 2px solid var(--primary);
+            padding: 15px;
             margin: 10px;
             font-size: 1rem;
+            border-radius: 4px;
         }
 
         button { 
             cursor: pointer; 
-            background: rgba(0, 243, 255, 0.1); 
+            font-weight: bold; 
             text-transform: uppercase;
-            font-weight: bold;
-            transition: 0.2s;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
         }
         button:hover { background: var(--primary); color: #000; }
+        button:active { transform: translateY(2px); }
         
-        textarea { width: 90%; resize: none; background: rgba(0,0,0,0.5); font-size: 0.8rem; word-break: break-all; }
+        textarea { width: 90%; resize: none; word-break: break-all; }
         input { text-align: center; width: 80%; }
+        .error-text { color: var(--secondary); font-weight: bold; margin-top: 5px; }
 
-        /* Error Message in UI */
-        .error-text { color: var(--secondary); font-size: 0.9rem; margin-top: 5px; min-height: 1.2em; }
-
+        /* --- VISUALS --- */
         .scanline {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
             background-size: 100% 4px;
             pointer-events: none;
-            z-index: 5; /* Lowered z-index to prevent click blocking */
+            z-index: 1; /* Behind UI */
+            opacity: 0.5;
+        }
+
+        #debug-log {
+            position: fixed; bottom: 0; left: 0; width: 100%; 
+            font-size: 0.7rem; color: #555; background: #000; 
+            padding: 2px; text-align: left; max-height: 50px; overflow: hidden;
+            z-index: 100;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -126,130 +123,135 @@
         <div id="round-display">R: 1/6</div>
     </div>
 
-    <!-- MAIN GAME SCREEN -->
+    <!-- SCREEN 1: GAME -->
     <div id="game-screen" class="screen visible">
         <div id="center-msg">SYSTEM READY</div>
-        <div id="grid-container">
-            <!-- Generated via JS -->
-        </div>
-        <button id="start-btn" onclick="Game.init()" style="margin-top: 30px;">INITIALIZE LINK</button>
+        <div id="grid-container"></div>
+        <button id="start-btn">INITIALIZE LINK</button>
     </div>
 
-    <!-- REWARD SCREEN -->
+    <!-- SCREEN 2: REWARD -->
     <div id="reward-screen" class="screen">
-        <h2 style="color: #fff">CONNECTION TERMINATED</h2>
-        <p id="end-reason">SIGNAL LOST</p>
-        <div style="border: 1px solid var(--secondary); padding: 10px; width: 80%; margin-bottom: 20px;">
+        <h2 style="color: #fff">CONNECTION LOST</h2>
+        <p id="end-reason">SIGNAL TERMINATED</p>
+        <div style="border: 1px solid #fff; padding: 10px; width: 80%;">
             HIGHEST LEVEL: <span id="final-level" style="color:#fff">0</span>
         </div>
-        
-        <p>Enter Discord ID to secure data:</p>
-        <input type="text" id="discord-id" placeholder="User ID (Required)">
+        <p>Enter Discord ID:</p>
+        <input type="text" id="discord-id" placeholder="User ID">
         <div id="verify-error" class="error-text"></div>
-        <button onclick="Game.generateCode()">ENCRYPT & CLAIM</button>
-        <button onclick="location.reload()" style="border-color: #555; color: #777; margin-top:5px;">RESTART (LOSE DATA)</button>
+        <button id="gen-btn">ENCRYPT DATA</button>
+        <button id="restart-btn" style="border-color: #555; color: #777;">RETRY</button>
     </div>
 
-    <!-- CODE SCREEN -->
+    <!-- SCREEN 3: CODE -->
     <div id="code-screen" class="screen">
         <h2 style="color: var(--primary)">DATA ENCRYPTED</h2>
         <textarea id="output-code" rows="4" readonly></textarea>
-        
-        <!-- NEW COPY BUTTON -->
-        <button onclick="Game.copyToClip()" id="copy-btn">📋 COPY CODE</button>
-        
-        <p>Run: <code>/claim [code]</code></p>
-        <button onclick="location.reload()">NEW SESSION</button>
+        <button id="copy-btn">📋 COPY CODE</button>
+        <p style="font-size: 0.9rem;">Command: /claim [code]</p>
+        <button id="new-session-btn">NEW SESSION</button>
     </div>
 
+    <!-- DEBUGGER -->
+    <div id="debug-log">Log initialized...</div>
+
     <script>
+        // --- ERROR LOGGING FOR DISCORD ---
+        function log(msg) {
+            const el = document.getElementById('debug-log');
+            el.innerHTML = msg + "<br>" + el.innerHTML;
+            console.log(msg);
+        }
+        window.onerror = function(msg, url, line) {
+            log("ERR: " + msg + " (L" + line + ")");
+            return false;
+        };
+
         const Game = (() => {
-            const CONFIG = {
-                roundsPerLevel: 6,
-                baseSpeed: 600,
-                bossInterval: 10
-            };
-
-            let state = {
-                level: 1,
-                round: 1,
-                sequence: [],
-                playerInput: [],
-                isLocked: true,
-                gridSize: 3,
-                bossMode: false
-            };
-
-            // Audio Context - Safe Init
-            let AudioCtx = null;
+            const CONFIG = { rounds: 6, speed: 600 };
             
+            let state = {
+                level: 1, round: 1, sequence: [], playerInput: [],
+                isLocked: true, gridSize: 3, bossMode: false
+            };
+
+            // --- AUDIO SYSTEM (CRASH PROOF) ---
+            let audioCtx = null;
+            let audioEnabled = false;
+
             const initAudio = () => {
-                if (!AudioCtx) {
-                    try {
-                        AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    } catch (e) { console.log("Audio not supported"); }
-                }
-                if (AudioCtx && AudioCtx.state === 'suspended') {
-                    try { AudioCtx.resume(); } catch(e){}
+                try {
+                    const AC = window.AudioContext || window.webkitAudioContext;
+                    if (AC) {
+                        audioCtx = new AC();
+                        audioEnabled = true;
+                        log("Audio System: OK");
+                    } else {
+                        log("Audio System: Not Supported");
+                    }
+                } catch(e) {
+                    log("Audio Init Failed: " + e.message);
                 }
             };
 
             const playTone = (freq, type, dur) => {
-                if(!AudioCtx) return;
+                if (!audioEnabled || !audioCtx) return;
                 try {
-                    const osc = AudioCtx.createOscillator();
-                    const gain = AudioCtx.createGain();
+                    if (audioCtx.state === 'suspended') audioCtx.resume();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
                     osc.type = type;
-                    osc.frequency.setValueAtTime(freq, AudioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.1, AudioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + dur);
+                    osc.frequency.value = freq;
+                    gain.gain.value = 0.1;
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
                     osc.connect(gain);
-                    gain.connect(AudioCtx.destination);
+                    gain.connect(audioCtx.destination);
                     osc.start();
-                    osc.stop(AudioCtx.currentTime + dur);
-                } catch(e) {}
+                    osc.stop(audioCtx.currentTime + dur);
+                } catch(e) { 
+                    // Silent fail
+                }
             };
 
             const Sounds = {
                 tap: (i) => playTone(400 + (i*50), 'sine', 0.1),
                 flash: (i) => playTone(400 + (i*50), 'triangle', 0.15),
                 error: () => playTone(150, 'sawtooth', 0.5),
-                boss: () => playTone(100, 'square', 0.8),
                 win: () => [500,600,800].forEach((f,i) => setTimeout(() => playTone(f,'square',0.1), i*100))
             };
 
+            // --- DOM ELEMENTS ---
             const els = {
                 grid: document.getElementById('grid-container'),
                 lvl: document.getElementById('level-display'),
                 rnd: document.getElementById('round-display'),
                 msg: document.getElementById('center-msg'),
-                startBtn: document.getElementById('start-btn'),
                 err: document.getElementById('verify-error')
             };
 
+            // --- ENGINE ---
             const renderGrid = (size) => {
                 els.grid.innerHTML = '';
                 els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
                 state.gridSize = size;
-                const totalCells = size * size;
-                for(let i=0; i<totalCells; i++) {
+                for(let i=0; i<size*size; i++) {
                     const d = document.createElement('div');
                     d.className = 'cell';
-                    d.dataset.id = i;
-                    d.addEventListener('mousedown', () => handleInput(i));
-                    d.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(i); });
+                    // Use standard click for compatibility
+                    d.onclick = () => handleInput(i); 
                     els.grid.appendChild(d);
                 }
             };
 
-            const init = () => {
-                initAudio(); // Try to start audio, but proceed even if it fails
-                els.startBtn.style.display = 'none';
+            const startGame = () => {
+                log("Game Initializing...");
+                initAudio();
+                document.getElementById('start-btn').style.display = 'none';
                 state.level = 1;
                 state.round = 1;
                 state.sequence = [];
                 state.bossMode = false;
-                document.body.classList.remove('sabotage');
                 renderGrid(3);
                 nextRound();
             };
@@ -257,73 +259,74 @@
             const nextRound = () => {
                 state.playerInput = [];
                 state.isLocked = true;
+                
+                // Difficulty
                 if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
                 if(state.level >= 15 && state.gridSize < 5) renderGrid(5);
 
-                if(state.level % CONFIG.bossInterval === 0 && !state.bossMode) {
+                // Boss Mode
+                if(state.level % 10 === 0) {
                     state.bossMode = true;
                     document.body.classList.add('sabotage');
-                    Sounds.boss();
-                    els.msg.innerText = "⚠️ SYSTEM INTRUSION ⚠️";
-                } else if (state.level % CONFIG.bossInterval !== 0) {
+                    els.msg.innerText = "⚠️ INTRUSION ⚠️";
+                } else {
                     state.bossMode = false;
                     document.body.classList.remove('sabotage');
                     els.msg.innerText = "WATCH PATTERN";
                 }
 
-                els.lvl.innerText = `LVL: ${state.level.toString().padStart(2,'0')}`;
-                els.rnd.innerText = `R: ${state.round}/${CONFIG.roundsPerLevel}`;
+                els.lvl.innerText = `LVL: ${state.level}`;
+                els.rnd.innerText = `R: ${state.round}/${CONFIG.rounds}`;
 
+                // Add Step
                 const max = state.gridSize * state.gridSize;
                 state.sequence.push(Math.floor(Math.random() * max));
 
-                let speed = Math.max(200, CONFIG.baseSpeed - (state.level * 20));
-                if(state.bossMode) speed = 250; 
-
+                let speed = Math.max(200, CONFIG.speed - (state.level * 20));
                 setTimeout(() => playSequence(speed), 1000);
             };
 
             const playSequence = async (speed) => {
                 for(let id of state.sequence) {
-                    await flashCell(id, speed);
+                    await new Promise(r => {
+                        const c = els.grid.children[id];
+                        if(c) c.classList.add('active');
+                        Sounds.flash(id);
+                        setTimeout(() => {
+                            if(c) c.classList.remove('active');
+                            setTimeout(r, speed/2);
+                        }, speed/2);
+                    });
                 }
                 state.isLocked = false;
                 els.msg.innerText = "REPEAT";
             };
 
-            const flashCell = (id, speed) => {
-                return new Promise(r => {
-                    const c = els.grid.children[id];
-                    if(c) c.classList.add('active');
-                    Sounds.flash(id);
-                    setTimeout(() => {
-                        if(c) c.classList.remove('active');
-                        setTimeout(r, speed * 0.5);
-                    }, speed * 0.5);
-                });
-            };
-
             const handleInput = (id) => {
                 if(state.isLocked) return;
+                
                 const c = els.grid.children[id];
                 c.classList.add('active');
                 setTimeout(() => c.classList.remove('active'), 150);
                 Sounds.tap(id);
 
                 state.playerInput.push(id);
+                
+                // Verify
                 const idx = state.playerInput.length - 1;
                 if(state.playerInput[idx] !== state.sequence[idx]) {
                     gameOver();
                     return;
                 }
 
+                // Complete
                 if(state.playerInput.length === state.sequence.length) {
                     state.isLocked = true;
-                    if(state.round >= CONFIG.roundsPerLevel) {
+                    if(state.round >= CONFIG.rounds) {
                         state.level++;
                         state.round = 1;
-                        state.sequence = []; 
-                        els.msg.innerText = "UPLOAD COMPLETE";
+                        state.sequence = [];
+                        els.msg.innerText = "UPLOADED";
                         Sounds.win();
                         setTimeout(nextRound, 1000);
                     } else {
@@ -335,39 +338,32 @@
 
             const gameOver = () => {
                 state.isLocked = true;
-                els.msg.innerText = "FATAL ERROR";
-                document.body.classList.remove('sabotage');
+                els.msg.innerText = "ERROR";
                 Sounds.error();
                 document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
                 setTimeout(() => {
-                    document.getElementById('game-screen').classList.remove('visible');
+                    document.querySelector('.visible').classList.remove('visible');
                     document.getElementById('reward-screen').classList.add('visible');
                     document.getElementById('final-level').innerText = state.level;
                     document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level}`;
-                }, 1500);
+                }, 1000);
             };
 
+            // --- CRYPTO & UI ---
             const generateCode = () => {
                 const uid = document.getElementById('discord-id').value.trim();
                 els.err.innerText = "";
                 
                 if(uid.length < 15 || isNaN(uid)) { 
-                    // REPLACED ALERT WITH TEXT
-                    els.err.innerText = "INVALID ID FORMAT"; 
-                    return; 
+                    els.err.innerText = "INVALID ID FORMAT"; return; 
                 }
-                
-                const lvl = state.level;
-                if(lvl < 2) {
-                    els.err.innerText = "LEVEL 2 REQUIRED";
-                    return;
+                if(state.level < 2) { 
+                    els.err.innerText = "MUST BEAT LEVEL 1"; return; 
                 }
 
-                const nonce = Math.random().toString(36).substring(2, 10);
+                const nonce = Math.random().toString(36).substr(2, 8);
                 const today = new Date().toISOString().split('T')[0];
-                const salt = "CYBER_TRIVIA_SECRET_KEY_99";
-                
-                const raw = `${uid}::${lvl}::${nonce}::${today}::${salt}`;
+                const raw = `${uid}::${state.level}::${nonce}::${today}::CYBER_TRIVIA_SECRET_KEY_99`;
                 const code = btoa(raw);
 
                 document.getElementById('reward-screen').classList.remove('visible');
@@ -375,23 +371,28 @@
                 document.getElementById('output-code').value = code;
             };
 
-            // NEW: COPY FUNCTION
-            const copyToClip = () => {
-                const copyText = document.getElementById("output-code");
-                copyText.select();
-                copyText.setSelectionRange(0, 99999); // Mobile support
-                
-                try {
-                    navigator.clipboard.writeText(copyText.value);
-                    document.getElementById("copy-btn").innerText = "✅ COPIED";
-                } catch(err) {
+            const copyCode = () => {
+                const txt = document.getElementById("output-code");
+                txt.select();
+                txt.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(txt.value).then(() => {
+                    document.getElementById('copy-btn').innerText = "✅ COPIED";
+                }).catch(() => {
                     document.execCommand("copy"); // Fallback
-                    document.getElementById("copy-btn").innerText = "✅ COPIED";
-                }
-                setTimeout(() => document.getElementById("copy-btn").innerText = "📋 COPY CODE", 2000);
+                    document.getElementById('copy-btn').innerText = "✅ COPIED";
+                });
             };
 
-            return { init, generateCode, copyToClip };
+            // --- EVENT LISTENERS (SAFE) ---
+            window.onload = () => {
+                document.getElementById('start-btn').addEventListener('click', startGame);
+                document.getElementById('gen-btn').addEventListener('click', generateCode);
+                document.getElementById('copy-btn').addEventListener('click', copyCode);
+                document.getElementById('restart-btn').addEventListener('click', () => location.reload());
+                document.getElementById('new-session-btn').addEventListener('click', () => location.reload());
+                log("System Ready. Waiting for input.");
+            };
+
         })();
     </script>
 </body>
