@@ -3,512 +3,548 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL V5 [3D]</title>
+    <title>CYBER PROTOCOL V7 [EXTREME]</title>
     <script src="https://unpkg.com/@discord/embedded-app-sdk@1.0.0/dist/discord-sdk.bundled.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
     <style>
-        :root {
-            --primary: #00f3ff;
-            --secondary: #ff0055;
-            --bg: #050510;
-            --panel-bg: rgba(0, 10, 20, 0.9);
-            --border: 1px solid rgba(0, 243, 255, 0.4);
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--primary);
-            font-family: "Courier New", Courier, monospace;
-            margin: 0;
-            height: 100vh;
-            overflow: hidden;
-            user-select: none;
-        }
-
-        /* --- 3D CANVAS --- */
-        #canvas-container {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0;
-        }
-
-        /* --- VIGNETTE & SCANLINES --- */
-        .overlay-fx {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: 
-                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
-                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 2px, 3px 100%;
-            z-index: 1; pointer-events: none;
-        }
-        .vignette {
-            position: fixed; top:0; left:0; width:100%; height:100%;
-            background: radial-gradient(circle, transparent 50%, #000 100%);
-            z-index: 2; pointer-events: none;
-        }
-
-        /* --- MAIN LAYOUT --- */
-        #main-layout {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 100%; height: 100%;
-            position: relative;
-            z-index: 10;
-            gap: 20px;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-
-        /* --- PANELS --- */
-        .side-panel {
-            flex: 1; height: 80%;
-            background: var(--panel-bg);
-            border: var(--border);
-            display: none; 
-            flex-direction: column;
-            padding: 15px;
-            font-size: 0.8rem;
-            color: #0aa;
-            position: relative;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
-        }
-        @media (min-width: 900px) { .side-panel { display: flex; } }
-
-        .panel-header { border-bottom: 1px solid var(--primary); margin-bottom: 10px; font-weight: bold; color: #fff; letter-spacing: 2px; }
-        .log-content { flex: 1; overflow: hidden; opacity: 0.8; display: flex; flex-direction: column-reverse; }
-        .log-line { margin-bottom: 4px; border-left: 2px solid var(--secondary); padding-left: 5px; }
-
-        .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; }
-
-        /* --- HUD --- */
-        #ui-layer {
-            width: 100%; display: flex; justify-content: space-between;
-            background: var(--panel-bg); border: 1px solid var(--primary);
-            padding: 15px; margin-bottom: 20px;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.15);
-            backdrop-filter: blur(5px);
-        }
-        .stat-val { font-size: 1.4rem; font-weight: bold; text-shadow: 0 0 5px var(--primary); }
-
-        /* --- SCREENS --- */
-        .screen {
-            background: var(--panel-bg); border: 1px solid var(--primary);
-            width: 100%; padding: 30px 0;
-            display: none; flex-direction: column; align-items: center;
-            box-shadow: 0 0 30px rgba(0,0,0,0.8);
-            position: relative; backdrop-filter: blur(10px);
-        }
-        .screen.visible { display: flex; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-
-        /* --- GRID --- */
-        #grid-container { display: grid; gap: 8px; margin-bottom: 25px; }
-        .cell {
-            width: clamp(50px, 14vw, 80px); height: clamp(50px, 14vw, 80px);
-            background: rgba(0, 243, 255, 0.05); border: 1px solid rgba(0, 243, 255, 0.5);
-            cursor: pointer; transition: 0.1s;
-        }
-        .cell.active { 
-            background: #fff; border-color: #fff; 
-            box-shadow: 0 0 20px #fff, 0 0 40px var(--primary); 
-            transform: scale(0.95); 
-        }
-        .cell.error { background: var(--secondary); border-color: var(--secondary); box-shadow: 0 0 20px var(--secondary); }
-
-        /* --- CONTROLS --- */
-        button {
-            background: rgba(0, 243, 255, 0.15); color: var(--primary);
-            border: 1px solid var(--primary); padding: 12px 30px;
-            font-weight: bold; font-size: 1rem; text-transform: uppercase;
-            cursor: pointer; transition: 0.2s; margin-top: 10px;
-        }
-        button:hover { background: var(--primary); color: #000; box-shadow: 0 0 20px var(--primary); }
+        :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
+        body { background-color: var(--bg); color: var(--primary); font-family: "Courier New", Courier, monospace; margin: 0; height: 100vh; overflow: hidden; user-select: none; }
         
-        input, textarea {
-            background: rgba(0,0,0,0.6); border: 1px solid #555; color: #fff;
-            padding: 12px; width: 80%; text-align: center; margin: 10px 0;
-            font-family: inherit; font-size: 1.1rem;
-        }
-        input:disabled { border-color: var(--primary); color: var(--primary); opacity: 0.8; }
+        /* 3D Canvas */
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; transition: filter 0.5s; }
         
-        .discord-status { font-size: 0.8rem; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
-        .dot { width: 8px; height: 8px; border-radius: 50%; background: #555; }
-        .dot.online { background: #0f0; box-shadow: 0 0 5px #0f0; }
+        /* CRT & FX Overlays */
+        .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 1; pointer-events: none; }
+        .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
+        @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
+        /* Main UI */
+        #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
+        
+        /* Panels */
+        .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: none; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; }
+        @media (min-width: 900px) { .side-panel { display: block; } }
+
+        /* Game Console */
+        .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; perspective: 1000px; }
+        
+        .screen { background: var(--panel-bg); border: 1px solid var(--primary); width: 100%; padding: 30px 0; display: none; flex-direction: column; align-items: center; backdrop-filter: blur(8px); transition: transform 0.5s ease; box-shadow: 0 0 30px rgba(0,0,0,0.5); text-shadow: 0 0 2px #000; }
+        .screen.visible { display: flex; }
+        
+        /* SABOTAGE: CSS Rotation for Grid */
+        #grid-container { display: grid; gap: 8px; margin-bottom: 25px; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .sabotage-tilt { transform: rotate(15deg) scale(0.9); border: 2px solid var(--secondary); padding: 10px; }
+        .sabotage-invert { transform: rotate(-15deg) scale(0.9); filter: invert(1); }
+
+        .cell { width: 60px; height: 60px; background: rgba(0, 243, 255, 0.1); border: 1px solid rgba(0, 243, 255, 0.5); cursor: pointer; transition: 0.1s; }
+        .cell.active { background: #fff; box-shadow: 0 0 20px #fff; transform: scale(1.1); }
+        .cell.error { background: var(--secondary); box-shadow: 0 0 20px var(--secondary); }
+
+        /* Inputs */
+        button { background: rgba(0, 243, 255, 0.2); color: var(--primary); border: 1px solid var(--primary); padding: 10px 20px; cursor: pointer; font-weight: bold; margin-top: 10px; font-family:inherit; text-transform:uppercase; text-shadow: 0 0 5px var(--primary); }
+        button:hover { background: var(--primary); color: #000; text-shadow:none; }
+        input, textarea { background: rgba(0,0,0,0.7); border: 1px solid #555; color: #fff; padding: 10px; width: 80%; text-align: center; margin: 10px 0; font-family:inherit; font-size:1.1rem;}
+
+        /* HUD Text */
+        .hud-stat { font-size: 0.8rem; color: #aaa; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; }
+        .hud-val { font-size: 1.5rem; color: #fff; font-weight: bold; text-shadow: 0 0 10px var(--primary); }
     </style>
 </head>
 <body>
-
     <div id="canvas-container"></div>
-    
     <div class="overlay-fx"></div>
-    <div class="vignette"></div>
+    <div class="glitch-overlay" id="danger-overlay"></div>
 
     <div id="main-layout">
-        
-        <div class="side-panel left">
-            <div class="panel-header">SYS_LOGS</div>
-            <div class="log-content" id="sys-log">
-                <div class="log-line">INIT_THREE_JS... OK</div>
-                <div class="log-line">DISCORD_SDK... LOADING</div>
+        <div class="side-panel">
+            <h3>SYS_DIAGNOSTICS</h3>
+            <div id="sys-log" style="font-size:0.8rem; opacity:0.9; line-height:1.5;">
+                > SYSTEM_READY<br>
+                > AUDIO_ENGINE: ADAPTIVE<br>
             </div>
         </div>
 
         <div class="console-wrapper">
-            
-            <div id="ui-layer">
-                <div style="display:flex; flex-direction:column;">
-                    <span style="font-size:0.7rem; color:#888;">CURRENT LVL</span>
-                    <span class="stat-val" id="level-display">01</span>
-                </div>
-                <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                    <span style="font-size:0.7rem; color:#888;">PACKET PROGRESS</span>
-                    <span class="stat-val" id="round-display">1/6</span>
-                </div>
+            <div style="width:100%; display:flex; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.6); padding:10px; border:1px solid #333;">
+                <div><div class="hud-stat">LEVEL</div><div class="hud-val" id="level-display">01</div></div>
+                <div style="text-align:right;"><div class="hud-stat">PROGRESS</div><div class="hud-val" id="round-display">1/6</div></div>
             </div>
 
             <div id="game-screen" class="screen visible">
-                <div id="center-msg" style="font-size:1.2rem; margin-bottom:20px; font-weight:bold;">ESTABLISHING LINK...</div>
+                <h2 id="center-msg" style="letter-spacing:3px;">READY</h2>
                 <div id="grid-container"></div>
                 <button id="start-btn">INITIALIZE</button>
             </div>
 
             <div id="reward-screen" class="screen">
-                <h2 style="color:var(--secondary); margin:0">CONNECTION SEVERED</h2>
-                <p id="end-reason" style="opacity:0.8; margin-bottom:20px;">SIGNAL LOST</p>
-                
-                <div style="background:rgba(255,255,255,0.05); border:1px solid #444; padding:15px; width:80%; margin-bottom:20px;">
-                    <div style="font-size:0.8rem; color:#aaa;">LEVELS CLEARED</div>
-                    <div id="final-level" style="font-size:2rem; color:#fff; font-weight:bold;">0</div>
-                </div>
-
-                <div class="discord-status">
-                    <div id="discord-dot" class="dot"></div>
-                    <span id="discord-status-text">DISCORD DISCONNECTED</span>
-                </div>
-
-                <input type="text" id="discord-id" placeholder="ENTER DISCORD ID" autocomplete="off">
-                <div id="verify-error" style="color:var(--secondary); font-size:0.9rem; min-height:1.2em; margin-bottom:10px;"></div>
-                
-                <button id="gen-btn">GENERATE KEY</button>
-                <button id="restart-btn" style="border-color:#555; color:#888; background:transparent; font-size:0.8rem; padding:8px 16px;">RETRY</button>
+                <h2 style="color:var(--secondary)">CONNECTION LOST</h2>
+                <p>LEVELS CLEARED: <span id="final-level" style="font-weight:bold; color:#fff">0</span></p>
+                <input type="text" id="discord-id" placeholder="DISCORD ID">
+                <div id="verify-error" style="color:var(--secondary); font-size:0.8rem;"></div>
+                <button id="gen-btn">GENERATE HASH</button>
+                <button id="restart-btn" style="border:none; background:none; font-size:0.8rem; color:#888;">RETRY</button>
             </div>
 
             <div id="code-screen" class="screen">
-                <h2 style="margin:0; color:var(--primary)">KEY GENERATED</h2>
-                <textarea id="output-code" rows="4" readonly onclick="this.select()"></textarea>
-                <button id="copy-btn">📋 COPY KEY</button>
-                <button id="new-session-btn" style="margin-top:20px; border-color:#555;">NEW SESSION</button>
-            </div>
-
-        </div>
-
-        <div class="side-panel right">
-            <div class="panel-header">ENV_STATS</div>
-            <div style="margin-top:10px; font-size:0.8rem;">
-                RENDERER: WEBGL<br>
-                FPS: <span id="fps-counter">60</span><br>
-                GEOMETRY: 12k TRIS<br>
-                <br>
-                DISCORD_CLIENT:<br>
-                <span id="discord-debug">NOT_DETECTED</span>
+                <h2>KEY GENERATED</h2>
+                <textarea id="output-code" rows="4" readonly></textarea>
+                <button id="new-session-btn">NEW SESSION</button>
             </div>
         </div>
 
+        <div class="side-panel">
+            <h3>ENV_STATUS</h3>
+            <div style="font-size:0.8rem; opacity:0.9;">
+                STABILITY: <span id="env-stab">100%</span><br>
+                THREAT_LEVEL: <span id="env-threat">NONE</span>
+            </div>
+        </div>
     </div>
 
     <script>
         // ==========================================
-        // CONFIGURATION
+        // 1. VISUAL ENGINE
         // ==========================================
-        // To enable real Discord Auth, you need a Client ID from the Discord Developer Portal.
-        const DISCORD_CLIENT_ID = 'YOUR_DISCORD_CLIENT_ID_HERE'; 
+        const Visuals = {
+            scene: null, camera: null, renderer: null, terrain: null, particles: null,
+            targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
+            
+            init: () => {
+                const container = document.getElementById("canvas-container");
+                Visuals.scene = new THREE.Scene();
+                Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
 
-        // ==========================================
-        // 1. THREE.JS BACKGROUND SYSTEM
-        // ==========================================
-        const initThreeJS = () => {
-            const container = document.getElementById('canvas-container');
-            const scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x050510, 0.0025);
+                Visuals.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                Visuals.camera.position.set(0, 10, 50);
+                Visuals.camera.rotation.x = -0.2;
 
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 50;
-            camera.position.y = 10;
-            camera.rotation.x = -0.2;
+                Visuals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(Visuals.renderer.domElement);
 
-            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            container.appendChild(renderer.domElement);
+                const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
+                geo.userData = { originalPos: geo.attributes.position.array.slice() };
+                const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
+                Visuals.terrain = new THREE.Mesh(geo, mat);
+                Visuals.terrain.rotation.x = -Math.PI / 2;
+                Visuals.scene.add(Visuals.terrain);
 
-            // -- TERRAIN --
-            const geometry = new THREE.PlaneGeometry(200, 200, 40, 40);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: 0x00f3ff, 
-                wireframe: true,
-                transparent: true,
-                opacity: 0.15
-            });
-            const terrain = new THREE.Mesh(geometry, material);
-            terrain.rotation.x = -Math.PI / 2;
-            scene.add(terrain);
+                const pGeo = new THREE.BufferGeometry();
+                const pPos = new Float32Array(1500 * 3);
+                for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
+                pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+                Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
+                Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
+                Visuals.scene.add(Visuals.particles);
 
-            // -- PARTICLES --
-            const particlesGeom = new THREE.BufferGeometry();
-            const particlesCount = 300;
-            const posArray = new Float32Array(particlesCount * 3);
-            for(let i=0; i < particlesCount * 3; i++) {
-                posArray[i] = (Math.random() - 0.5) * 150;
-            }
-            particlesGeom.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-            const particlesMat = new THREE.PointsMaterial({ size: 0.5, color: 0xff0055 });
-            const particleMesh = new THREE.Points(particlesGeom, particlesMat);
-            scene.add(particleMesh);
+                Visuals.animate();
+            },
 
-            // -- ANIMATION LOOP --
-            let time = 0;
-            const animate = () => {
-                requestAnimationFrame(animate);
-                time += 0.05;
-
-                // Move terrain to simulate infinite scroll
-                terrain.position.z = (time * 2) % 5;
-                
-                // Wiggle the terrain vertices for "cyber" effect
-                const positions = terrain.geometry.attributes.position.array;
-                for (let i = 0; i < positions.length; i += 3) {
-                    // Only modify Z (height) based on X/Y
-                    // Note: Since rotated, Z is height in local space
-                    positions[i + 2] = Math.sin(positions[i]/10 + time) * 1.5 + Math.cos(positions[i+1]/10 + time) * 1.5;
+            setMode: (isBoss) => {
+                const mat = Visuals.terrain.material;
+                if(isBoss) {
+                    Visuals.glitchMode = true; Visuals.targetSpeed = 0.35; Visuals.shakeIntensity = 0.6;
+                    mat.color.setHex(0xff0055); Visuals.pMat.color.setHex(0xff0055);
+                    mat.opacity = 0.6; Visuals.scene.fog.density = 0.005;
+                    document.getElementById('danger-overlay').style.display = 'block';
+                    document.getElementById('env-threat').innerText = "CRITICAL"; document.getElementById('env-threat').style.color = "red";
+                } else {
+                    Visuals.glitchMode = false; Visuals.targetSpeed = 0.05; Visuals.shakeIntensity = 0;
+                    mat.color.setHex(0x00f3ff); Visuals.pMat.color.setHex(0xffffff);
+                    mat.opacity = 0.3; Visuals.scene.fog.density = 0.002;
+                    Visuals.camera.position.x = 0; Visuals.camera.rotation.z = 0; 
+                    document.getElementById('danger-overlay').style.display = 'none';
+                    document.getElementById('env-threat').innerText = "NONE"; document.getElementById('env-threat').style.color = "#0aa";
                 }
-                terrain.geometry.attributes.position.needsUpdate = true;
+            },
 
-                // Rotate particles slowly
-                particleMesh.rotation.y = time * 0.05;
-
-                renderer.render(scene, camera);
-            };
-            animate();
-
-            // Resize Handler
-            window.addEventListener('resize', () => {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            });
-        };
-
-        // ==========================================
-        // 2. DISCORD SDK INTEGRATION
-        // ==========================================
-        let discordUser = null;
-        
-        const initDiscord = async () => {
-            const statusText = document.getElementById('discord-status-text');
-            const statusDot = document.getElementById('discord-dot');
-            const debugText = document.getElementById('discord-debug');
-            const log = document.getElementById('sys-log');
-
-            try {
-                // Check if running in iframe (likely Discord)
-                if (window.self === window.top) {
-                    throw new Error("NOT_IN_DISCORD");
+            animate: () => {
+                requestAnimationFrame(Visuals.animate);
+                Visuals.currentSpeed += (Visuals.targetSpeed - Visuals.currentSpeed) * 0.05;
+                const pos = Visuals.terrain.geometry.attributes.position;
+                const arr = pos.array;
+                let time = Date.now() * 0.001;
+                for(let i=0; i < arr.length; i+=3) {
+                    if(Visuals.glitchMode) arr[i+2] = Math.sin(arr[i]/5 + time*5) * 5 + (Math.random()-0.5)*2; 
+                    else arr[i+2] = Math.sin(arr[i]/10 + time*2) * 2 + Math.cos(arr[i+1]/10 + time) * 2;
                 }
-
-                const { DiscordSDK } = window.DiscordSDK;
-                const discordSdk = new DiscordSDK(DISCORD_CLIENT_ID);
-
-                await discordSdk.ready();
-                
-                // Authorize (This usually requires a backend to swap code for token)
-                // For this Client-Only demo, we attempt a simple authorize command
-                // Note: Without a backend, we might not get full user profile in production
-                // This is the setup structure:
-                const { code } = await discordSdk.commands.authorize({
-                    client_id: DISCORD_CLIENT_ID,
-                    response_type: "code",
-                    state: "",
-                    prompt: "none",
-                    scope: [
-                        "identify",
-                        "rpc.activities.write"
-                    ],
-                });
-
-                // Mocking user fetch success for logic demonstration
-                // In a real app, you POST 'code' to your backend -> backend exchanges for token -> backend gets user
-                statusText.innerText = "DISCORD LINKED (SDK)";
-                statusDot.classList.add('online');
-                debugText.innerText = "SDK_ACTIVE";
-                
-                // Add log
-                const div = document.createElement('div');
-                div.className = 'log-line'; div.innerText = "DISCORD_SDK: CONNECTED";
-                log.prepend(div);
-
-                // If we could really fetch user without backend (we can't easily), we would do it here.
-                // For this demo, we will check if we can get instance data
-                // discordUser = ...
-
-            } catch (e) {
-                console.log("Discord SDK Init failed or not in Discord:", e);
-                statusText.innerText = "MANUAL OVERRIDE";
-                debugText.innerText = "OFFLINE/BROWSER";
+                pos.needsUpdate = true;
+                Visuals.terrain.position.z = (time * 10 * Visuals.currentSpeed * 10) % 5;
+                Visuals.particles.rotation.y = time * 0.1;
+                if(Visuals.shakeIntensity > 0) {
+                    Visuals.camera.position.x = (Math.random() - 0.5) * Visuals.shakeIntensity;
+                    Visuals.camera.position.y = 10 + (Math.random() - 0.5) * Visuals.shakeIntensity;
+                    Visuals.camera.rotation.z = Math.sin(time*2) * 0.05; 
+                }
+                Visuals.renderer.render(Visuals.scene, Visuals.camera);
             }
         };
 
+        window.onload = Visuals.init;
+
         // ==========================================
-        // 3. GAME LOGIC (UNCHANGED BUT HOOKED UP)
+        // 2. PROGRESSIVE AUDIO ENGINE
         // ==========================================
         const Game = (() => {
-            const CONFIG = { rounds: 6, speed: 600 };
-            let state = { level: 1, round: 1, sequence: [], playerInput: [], isLocked: true, gridSize: 3 };
+            let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
             
-            // Audio Context
-            let audioCtx = null;
-            const initAudio = () => {
-                if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} }
-                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-            };
-            const playTone = (freq, type, dur) => {
-                if(!audioCtx) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type; osc.frequency.value = freq; gain.gain.value = 0.05;
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-                osc.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(); osc.stop(audioCtx.currentTime + dur);
-            };
-
             const els = {
                 grid: document.getElementById('grid-container'),
-                lvl: document.getElementById('level-display'),
-                rnd: document.getElementById('round-display'),
                 msg: document.getElementById('center-msg'),
-                err: document.getElementById('verify-error')
+                lvl: document.getElementById('level-display'),
+                rnd: document.getElementById('round-display')
             };
 
-            const renderGrid = (size) => {
+            const Audio = {
+                ctx: null,
+                bpm: 120,
+                nextNoteTime: 0,
+                beatCount: 0,
+                isPlaying: false,
+                currentChord: 0, 
+                timerID: null,
+                
+                // Progression: Dm -> F -> C -> G
+                progression: [146.83, 174.61, 130.81, 196.00], 
+                
+                // Scale Intervals (Minor Pentatonic + some spice)
+                // Expanded to cover 2+ octaves for large grids
+                scaleIntervals: [
+                    1, 1.2, 1.33, 1.5, 1.6, 
+                    2, 2.4, 2.66, 3.0, 3.2,
+                    4, 4.8, 5.33, 6.0, 6.4
+                ], 
+
+                initCtx: () => { if(!Audio.ctx) Audio.ctx = new (window.AudioContext||window.webkitAudioContext)(); },
+
+                startMusic: () => {
+                    Audio.initCtx();
+                    if(Audio.isPlaying) return;
+                    Audio.isPlaying = true;
+                    Audio.nextNoteTime = Audio.ctx.currentTime;
+                    Audio.scheduler();
+                },
+                
+                stopMusic: () => {
+                    Audio.isPlaying = false;
+                    clearTimeout(Audio.timerID);
+                },
+
+                scheduler: () => {
+                    if(!Audio.isPlaying) return;
+                    while (Audio.nextNoteTime < Audio.ctx.currentTime + 0.1) {
+                        Audio.playTick(Audio.nextNoteTime);
+                        Audio.nextNoteTime += (60 / Audio.bpm) / 4; // 16th notes
+                    }
+                    Audio.timerID = setTimeout(Audio.scheduler, 25);
+                },
+
+                playTick: (time) => {
+                    const sixteenth = Audio.beatCount % 16;
+                    const bar = Math.floor(Audio.beatCount / 16);
+                    
+                    // Change Chord every 4 bars
+                    if(sixteenth === 0 && bar % 4 === 0) {
+                        Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
+                    }
+
+                    const rootFreq = Audio.progression[Audio.currentChord];
+                    const isBoss = (state.l % 10 === 0);
+                    const level = state.l;
+
+                    // --- LAYER 1: KICK & BASS (Always On) ---
+                    if (sixteenth % 4 === 0) { // On the beat
+                        // Kick
+                        const osc = Audio.ctx.createOscillator();
+                        const g = Audio.ctx.createGain();
+                        osc.frequency.value = 60;
+                        g.gain.setValueAtTime(0.5, time);
+                        g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+                        osc.connect(g); g.connect(Audio.ctx.destination);
+                        osc.start(time); osc.stop(time + 0.2);
+
+                        // Bass
+                        const bOsc = Audio.ctx.createOscillator();
+                        const bG = Audio.ctx.createGain();
+                        bOsc.type = 'sawtooth';
+                        // Detune bass at high levels for "thick/extreme" sound
+                        const detune = level > 15 ? 5 : 0; 
+                        bOsc.frequency.value = (rootFreq / 4) + detune;
+                        
+                        const filt = Audio.ctx.createBiquadFilter();
+                        filt.type = 'lowpass';
+                        filt.frequency.value = isBoss ? 800 : (400 + (level*10)); // Filter opens up as you level up
+
+                        bG.gain.setValueAtTime(0, time);
+                        bG.gain.linearRampToValueAtTime(0.2, time + 0.1);
+                        bG.gain.linearRampToValueAtTime(0, time + 0.25);
+                        
+                        bOsc.connect(filt); filt.connect(bG); bG.connect(Audio.ctx.destination);
+                        bOsc.start(time); bOsc.stop(time + 0.3);
+                    }
+
+                    // --- LAYER 2: SNARE (Level 5+) ---
+                    // Adds drive and structure
+                    if (level >= 5 && (sixteenth % 8 === 4)) { // Beats 2 and 4
+                        const n = Audio.ctx.createBufferSource();
+                        const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.1, Audio.ctx.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        for (let i = 0; i < buffer.length; i++) data[i] = (Math.random() * 2 - 1);
+                        n.buffer = buffer;
+                        
+                        const nG = Audio.ctx.createGain();
+                        nG.gain.setValueAtTime(0.1, time);
+                        nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                        
+                        // Bandpass for snare "pop"
+                        const bpf = Audio.ctx.createBiquadFilter();
+                        bpf.type = 'bandpass';
+                        bpf.frequency.value = 1000;
+
+                        n.connect(bpf); bpf.connect(nG); nG.connect(Audio.ctx.destination);
+                        n.start(time);
+                    }
+
+                    // --- LAYER 3: HI-HATS (Level 3+) ---
+                    // Level 10+ makes them twice as fast (16th notes)
+                    const hatInterval = level >= 10 ? 2 : 4; 
+                    if (level >= 3 && (sixteenth % hatInterval === 0) && sixteenth % 4 !== 0) { 
+                        const n = Audio.ctx.createBufferSource();
+                        const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.05, Audio.ctx.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+                        n.buffer = buffer;
+                        const nG = Audio.ctx.createGain();
+                        nG.gain.value = 0.04;
+                        
+                        const hpf = Audio.ctx.createBiquadFilter();
+                        hpf.type = 'highpass'; hpf.frequency.value = 5000;
+                        
+                        n.connect(hpf); hpf.connect(nG); nG.connect(Audio.ctx.destination);
+                        n.start(time);
+                    }
+
+                    // --- LAYER 4: ARPEGGIO (Rounds 5+ or Boss) ---
+                    if ((state.r >= 5 || isBoss) && sixteenth % 2 === 0) {
+                        const osc = Audio.ctx.createOscillator();
+                        const g = Audio.ctx.createGain();
+                        osc.type = 'triangle';
+                        const interval = Audio.scaleIntervals[sixteenth % 5];
+                        osc.frequency.value = rootFreq * interval * 2; 
+                        
+                        g.gain.setValueAtTime(0.03, time);
+                        g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                        osc.connect(g); g.connect(Audio.ctx.destination);
+                        osc.start(time); osc.stop(time + 0.1);
+                    }
+
+                    Audio.beatCount++;
+                },
+
+                // --- PROGRESSIVE GAMEPLAY SOUNDS ---
+                playGameNote: (gridIndex) => {
+                    Audio.initCtx();
+                    const rootFreq = Audio.progression[Audio.currentChord];
+                    // Map larger grids to wider scale range
+                    const degree = Audio.scaleIntervals[gridIndex % Audio.scaleIntervals.length];
+                    const freq = rootFreq * degree * 2; 
+
+                    const osc = Audio.ctx.createOscillator();
+                    const g = Audio.ctx.createGain();
+                    
+                    // PROGRESSION: Sound changes based on Level
+                    if(state.l < 5) {
+                        osc.type = 'square'; // Classic
+                    } else {
+                        osc.type = 'sawtooth'; // Sharper/More intense
+                    }
+                    
+                    osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
+                    
+                    g.gain.setValueAtTime(0.05, Audio.ctx.currentTime);
+                    g.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
+                    
+                    osc.connect(g); g.connect(Audio.ctx.destination);
+                    osc.start(); osc.stop(Audio.ctx.currentTime + 0.3);
+
+                    // PROGRESSION: Level 15+ adds a Harmony Layer (Chord)
+                    if(state.l >= 15) {
+                        const osc2 = Audio.ctx.createOscillator();
+                        const g2 = Audio.ctx.createGain();
+                        osc2.type = 'sawtooth';
+                        // Play a major 3rd above
+                        osc2.frequency.setValueAtTime(freq * 1.25, Audio.ctx.currentTime); 
+                        g2.gain.setValueAtTime(0.03, Audio.ctx.currentTime);
+                        g2.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
+                        osc2.connect(g2); g2.connect(Audio.ctx.destination);
+                        osc2.start(); osc2.stop(Audio.ctx.currentTime + 0.3);
+                    }
+                },
+
+                playWin: () => {
+                    Audio.initCtx();
+                    const now = Audio.ctx.currentTime;
+                    const rootFreq = Audio.progression[Audio.currentChord]; 
+                    const chord = [1, 1.25, 1.5, 2]; 
+                    
+                    chord.forEach((interval, i) => {
+                        const o = Audio.ctx.createOscillator();
+                        const g = Audio.ctx.createGain();
+                        o.type = 'triangle'; 
+                        o.frequency.value = rootFreq * interval * 2; 
+                        g.gain.setValueAtTime(0, now);
+                        g.gain.linearRampToValueAtTime(0.1, now + 0.1 + (i*0.05));
+                        g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+                        o.connect(g); g.connect(Audio.ctx.destination);
+                        o.start(now); o.stop(now + 2.0);
+                    });
+                },
+
+                fail: () => {
+                    Audio.initCtx();
+                    const o = Audio.ctx.createOscillator();
+                    const g = Audio.ctx.createGain();
+                    o.type = 'sawtooth'; o.frequency.value = 60;
+                    o.frequency.linearRampToValueAtTime(40, Audio.ctx.currentTime + 0.3);
+                    g.gain.value = 0.2; g.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
+                    o.connect(g); g.connect(Audio.ctx.destination);
+                    o.start(); o.stop(Audio.ctx.currentTime + 0.3);
+                }
+            };
+
+            const resetGrid = (size) => {
                 els.grid.innerHTML = '';
                 els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-                state.gridSize = size;
+                state.sz = size;
                 for(let i=0; i<size*size; i++) {
-                    const d = document.createElement('div');
+                    let d = document.createElement('div');
                     d.className = 'cell';
-                    d.onmousedown = (e) => { e.preventDefault(); handleInput(i); };
-                    d.ontouchstart = (e) => { e.preventDefault(); handleInput(i); };
+                    d.onmousedown = () => handleInput(i);
                     els.grid.appendChild(d);
                 }
             };
 
-            const startGame = () => {
-                initAudio();
-                document.querySelectorAll('.screen').forEach(s => s.classList.remove('visible'));
-                document.getElementById('game-screen').classList.add('visible');
-                document.getElementById('start-btn').style.display = 'none';
-                els.msg.innerText = "READY";
-                state.level = 1; state.round = 1; state.sequence = [];
-                els.lvl.innerText = "01"; els.rnd.innerText = "1/6";
-                renderGrid(3);
-                nextRound();
+            const triggerSabotage = () => {
+                const isBoss = (state.l % 10 === 0);
+                Visuals.setMode(isBoss);
+                // BPM increases slightly every 5 levels
+                Audio.bpm = 120 + Math.min(40, Math.floor(state.l / 5) * 5);
+                if(isBoss) Audio.bpm += 20; // Boss surge
+
+                els.grid.classList.remove('sabotage-tilt', 'sabotage-invert');
+                if(isBoss) {
+                    els.msg.innerText = "⚠️ SYSTEM FAILURE ⚠️"; els.msg.style.color = "red";
+                    if(Math.random() > 0.5) els.grid.classList.add('sabotage-tilt');
+                    else els.grid.classList.add('sabotage-invert');
+                } else {
+                    els.msg.innerText = "OBSERVE"; els.msg.style.color = "#00f3ff";
+                }
             };
 
             const nextRound = () => {
-                state.playerInput = []; state.isLocked = true;
-                if(state.level >= 6 && state.gridSize < 4) renderGrid(4);
-                els.lvl.innerText = state.level.toString().padStart(2, '0');
-                els.rnd.innerText = `${state.round}/${CONFIG.rounds}`;
+                state.input = []; state.locked = true;
+                if(state.l >= 5 && state.sz < 4) resetGrid(4);
+                if(state.l >= 15 && state.sz < 5) resetGrid(5);
+
+                els.lvl.innerText = state.l.toString().padStart(2, '0');
+                els.rnd.innerText = `${state.r}/6`;
+
+                triggerSabotage();
+                state.seq.push(Math.floor(Math.random() * (state.sz * state.sz)));
                 
-                state.sequence.push(Math.floor(Math.random() * (state.gridSize * state.gridSize)));
-                els.msg.innerText = "OBSERVE"; els.msg.style.color = "var(--primary)";
-                
-                let speed = Math.max(200, CONFIG.speed - (state.level * 15));
-                setTimeout(() => playSequence(speed), 800);
+                let speed = Math.max(150, 600 - (state.l * 20));
+                setTimeout(() => playSeq(speed), 800);
             };
 
-            const playSequence = async (speed) => {
-                for(let id of state.sequence) {
-                    await new Promise(r => {
-                        const c = els.grid.children[id];
-                        if(c) c.classList.add('active');
-                        playTone(400 + (id*50), 'triangle', 0.1);
-                        setTimeout(() => { if(c) c.classList.remove('active'); setTimeout(r, speed/2); }, speed/2);
-                    });
+            const playSeq = async (speed) => {
+                for(let id of state.seq) {
+                    let c = els.grid.children[id];
+                    if(c) c.classList.add('active');
+                    Audio.playGameNote(id); 
+                    await new Promise(r => setTimeout(() => {
+                        if(c) c.classList.remove('active');
+                        setTimeout(r, speed/2);
+                    }, speed/2));
                 }
-                state.isLocked = false; els.msg.innerText = "REPEAT";
+                state.locked = false; 
+                if(!(state.l % 10 === 0)) els.msg.innerText = "REPEAT";
             };
 
             const handleInput = (id) => {
-                if(state.isLocked) return;
-                const c = els.grid.children[id];
+                if(state.locked) return;
+                let c = els.grid.children[id];
                 c.classList.add('active');
-                setTimeout(() => c.classList.remove('active'), 150);
-                playTone(400 + (id*50), 'sine', 0.1);
+                setTimeout(()=>c.classList.remove('active'), 150);
                 
-                state.playerInput.push(id);
-                if(state.playerInput[state.playerInput.length-1] !== state.sequence[state.playerInput.length-1]) {
-                    gameOver(); return;
+                Audio.playGameNote(id); 
+
+                state.input.push(id);
+                if(state.input[state.input.length-1] !== state.seq[state.input.length-1]) {
+                    fail(); return;
                 }
-                if(state.playerInput.length === state.sequence.length) {
-                    state.isLocked = true;
-                    if(state.round >= CONFIG.rounds) {
-                        state.level++; state.round = 1; state.sequence = [];
-                        els.msg.innerText = "UPLOADED"; 
-                        setTimeout(nextRound, 1000);
+                if(state.input.length === state.seq.length) {
+                    state.locked = true;
+                    if(state.r >= 6) {
+                        state.l++; state.r = 1; state.seq = [];
+                        Audio.playWin(); 
+                        els.msg.innerText = "UPLOAD COMPLETE";
+                        setTimeout(nextRound, 2000); 
                     } else {
-                        state.round++; setTimeout(nextRound, 400);
+                        state.r++;
+                        setTimeout(nextRound, 400);
                     }
                 }
             };
 
-            const gameOver = () => {
-                state.isLocked = true; els.msg.innerText = "ERROR"; playTone(150, 'sawtooth', 0.5);
+            const fail = () => {
+                state.locked = true;
+                Audio.fail();
                 document.querySelectorAll('.cell').forEach(c => c.classList.add('error'));
+                Visuals.setMode(false);
                 setTimeout(() => {
                     document.getElementById('game-screen').classList.remove('visible');
                     document.getElementById('reward-screen').classList.add('visible');
-                    document.getElementById('final-level').innerText = Math.max(0, state.level - 1);
-                    document.getElementById('end-reason').innerText = `FAILED AT LVL ${state.level}`;
+                    document.getElementById('final-level').innerText = Math.max(0, state.l - 1);
                 }, 1000);
             };
+            
+            const softReset = () => {
+                state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
+                document.getElementById('reward-screen').classList.remove('visible');
+                document.getElementById('code-screen').classList.remove('visible');
+                document.getElementById('game-screen').classList.add('visible');
+                document.getElementById('start-btn').style.display = 'block';
+                document.getElementById('verify-error').innerText = "";
+                document.getElementById('discord-id').value = "";
+                Visuals.setMode(false);
+                Audio.bpm = 120;
+                resetGrid(3);
+                els.lvl.innerText = "01"; els.rnd.innerText = "1/6"; els.msg.innerText = "READY";
+            }
 
-            // Generating code logic
+            document.getElementById('start-btn').onclick = () => {
+                document.getElementById('start-btn').style.display = 'none';
+                Audio.startMusic();
+                resetGrid(3); nextRound();
+            };
+            document.getElementById('restart-btn').onclick = softReset;
+            document.getElementById('new-session-btn').onclick = softReset;
+
             document.getElementById('gen-btn').onclick = () => {
-                const uid = document.getElementById('discord-id').value.trim();
-                els.err.innerText = "";
-                if(uid.length < 2) { els.err.innerText = "INVALID ID"; return; }
-                if((state.level - 1) < 1) { els.err.innerText = "NO LEVELS CLEARED"; return; }
-
-                const raw = `${uid}::${state.level-1}::${Date.now()}::CYBER_SECURE`;
-                document.getElementById('output-code').value = btoa(raw);
+                const uid = document.getElementById('discord-id').value;
+                const lvl = state.l - 1;
+                const err = document.getElementById('verify-error');
+                if(lvl < 1) { err.innerText = "INSUFFICIENT DATA"; return; }
+                if(uid.length < 2) { err.innerText = "INVALID ID"; return; }
+                const salt = "SABOTAGE_MODE_ACTIVE";
+                const hexLvl = (lvl * 999).toString(16);
+                const payload = btoa(`${uid}::${hexLvl}::${Date.now()}::${salt}`);
                 document.getElementById('reward-screen').classList.remove('visible');
                 document.getElementById('code-screen').classList.add('visible');
+                document.getElementById('output-code').value = payload;
             };
-
-            // Misc Buttons
-            document.getElementById('start-btn').onclick = startGame;
-            document.getElementById('restart-btn').onclick = () => {
-                document.getElementById('reward-screen').classList.remove('visible');
-                document.getElementById('game-screen').classList.add('visible');
-                startGame();
-            };
-            document.getElementById('new-session-btn').onclick = () => window.location.reload();
-            document.getElementById('copy-btn').onclick = () => {
-                const t = document.getElementById("output-code"); t.select();
-                document.execCommand("copy");
-            };
-
         })();
-
-        // Boot Systems
-        window.onload = () => {
-            initThreeJS();
-            initDiscord();
-        };
-
     </script>
 </body>
 </html>
