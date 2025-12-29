@@ -14,25 +14,22 @@
         /* 3D Canvas */
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; transition: filter 0.5s; }
         
-        /* CRT & FX Overlays */
+        /* FX Overlays */
         .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 1; pointer-events: none; }
         .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
         @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
-        /* Main UI */
+        /* UI Layout */
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
-        /* Panels */
         .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: none; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; }
         @media (min-width: 900px) { .side-panel { display: block; } }
 
-        /* Game Console */
         .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; perspective: 1000px; }
         
         .screen { background: var(--panel-bg); border: 1px solid var(--primary); width: 100%; padding: 30px 0; display: none; flex-direction: column; align-items: center; backdrop-filter: blur(8px); transition: transform 0.5s ease; box-shadow: 0 0 30px rgba(0,0,0,0.5); text-shadow: 0 0 2px #000; }
         .screen.visible { display: flex; }
         
-        /* SABOTAGE: CSS Rotation for Grid */
         #grid-container { display: grid; gap: 8px; margin-bottom: 25px; transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .sabotage-tilt { transform: rotate(15deg) scale(0.9); border: 2px solid var(--secondary); padding: 10px; }
         .sabotage-invert { transform: rotate(-15deg) scale(0.9); filter: invert(1); }
@@ -41,12 +38,10 @@
         .cell.active { background: #fff; box-shadow: 0 0 20px #fff; transform: scale(1.1); }
         .cell.error { background: var(--secondary); box-shadow: 0 0 20px var(--secondary); }
 
-        /* Inputs */
         button { background: rgba(0, 243, 255, 0.2); color: var(--primary); border: 1px solid var(--primary); padding: 10px 20px; cursor: pointer; font-weight: bold; margin-top: 10px; font-family:inherit; text-transform:uppercase; text-shadow: 0 0 5px var(--primary); }
         button:hover { background: var(--primary); color: #000; text-shadow:none; }
         input, textarea { background: rgba(0,0,0,0.7); border: 1px solid #555; color: #fff; padding: 10px; width: 80%; text-align: center; margin: 10px 0; font-family:inherit; font-size:1.1rem;}
 
-        /* HUD Text */
         .hud-stat { font-size: 0.8rem; color: #aaa; margin-bottom: 5px; text-shadow: 1px 1px 0 #000; }
         .hud-val { font-size: 1.5rem; color: #fff; font-weight: bold; text-shadow: 0 0 10px var(--primary); }
     </style>
@@ -60,9 +55,8 @@
         <div class="side-panel">
             <h3>SYS_DIAGNOSTICS</h3>
             <div id="sys-log" style="font-size:0.8rem; opacity:0.9; line-height:1.5;">
-                > SYSTEM_READY<br>
-                > AUDIO_ENGINE: ENHANCED<br>
-                > DISCORD_SDK: INITIALIZING...<br>
+                > SYSTEM_BOOT<br>
+                > AUDIO_ENGINE: STANDBY<br>
             </div>
         </div>
 
@@ -103,80 +97,54 @@
         </div>
     </div>
 
-    <script type="module">
+    <script>
         // ==========================================
-        // 0. DISCORD SDK SETUP
+        // 1. VISUAL ENGINE (THREE.JS)
         // ==========================================
-        const { DiscordSDK } = window.DiscordSDK;
-        
-        // !!! IMPORTANT: REPLACE WITH YOUR CLIENT ID !!!
-        const discordSdk = new DiscordSDK("1264837329886117959");
-
-        async function initDiscord() {
-            try {
-                await discordSdk.ready();
-                
-                // Optional: Auto-auth
-                /*
-                const { code } = await discordSdk.commands.authorize({
-                    client_id: "YOUR_CLIENT_ID",
-                    response_type: "code",
-                    state: "",
-                    prompt: "none",
-                    scope: ["identify", "guilds"]
-                });
-                */
-
-                const log = document.getElementById('sys-log');
-                log.innerHTML += "> DISCORD_SDK: CONNECTED<br>";
-            } catch (e) {
-                console.warn("Discord SDK Init Failed (Running in browser?):", e);
-                const log = document.getElementById('sys-log');
-                log.innerHTML += "> DISCORD_SDK: OFFLINE MODE<br>";
-            }
-        }
-        
-        initDiscord();
-
-        // ==========================================
-        // 1. VISUAL ENGINE
-        // ==========================================
+        // We define this globally so it starts immediately
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
             
             init: () => {
-                const container = document.getElementById("canvas-container");
-                Visuals.scene = new THREE.Scene();
-                Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
+                try {
+                    const container = document.getElementById("canvas-container");
+                    Visuals.scene = new THREE.Scene();
+                    Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
 
-                Visuals.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-                Visuals.camera.position.set(0, 10, 50);
-                Visuals.camera.rotation.x = -0.2;
+                    Visuals.camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+                    Visuals.camera.position.set(0, 10, 50);
+                    Visuals.camera.rotation.x = -0.2;
 
-                Visuals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-                Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
-                container.appendChild(Visuals.renderer.domElement);
+                    Visuals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                    Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+                    container.appendChild(Visuals.renderer.domElement);
 
-                const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
-                geo.userData = { originalPos: geo.attributes.position.array.slice() };
-                const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
-                Visuals.terrain = new THREE.Mesh(geo, mat);
-                Visuals.terrain.rotation.x = -Math.PI / 2;
-                Visuals.scene.add(Visuals.terrain);
+                    // Grid Terrain
+                    const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
+                    const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
+                    Visuals.terrain = new THREE.Mesh(geo, mat);
+                    Visuals.terrain.rotation.x = -Math.PI / 2;
+                    Visuals.scene.add(Visuals.terrain);
 
-                const pGeo = new THREE.BufferGeometry();
-                const pPos = new Float32Array(1500 * 3);
-                for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
-                pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-                Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
-                Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
-                Visuals.scene.add(Visuals.particles);
+                    // Particles
+                    const pGeo = new THREE.BufferGeometry();
+                    const pPos = new Float32Array(1500 * 3);
+                    for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
+                    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+                    Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
+                    Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
+                    Visuals.scene.add(Visuals.particles);
 
-                Visuals.animate();
+                    Visuals.animate();
+                    document.getElementById('sys-log').innerHTML += "> VISUALS: ONLINE<br>";
+                } catch(e) {
+                    console.error("Visuals Init Failed:", e);
+                }
             },
 
             setMode: (isBoss) => {
+                if(!Visuals.terrain) return;
                 const mat = Visuals.terrain.material;
                 if(isBoss) {
                     Visuals.glitchMode = true; Visuals.targetSpeed = 0.35; Visuals.shakeIntensity = 0.6;
@@ -216,10 +184,38 @@
             }
         };
 
-        window.onload = Visuals.init;
+        // ==========================================
+        // 2. DISCORD SDK SETUP (Non-Blocking)
+        // ==========================================
+        let discordSdk = null;
+
+        async function initDiscord() {
+            try {
+                // Access global window.DiscordSDK
+                if (!window.DiscordSDK) {
+                    throw new Error("SDK not loaded");
+                }
+                
+                const { DiscordSDK } = window.DiscordSDK;
+                // !!! REPLACE WITH YOUR CLIENT ID !!!
+                discordSdk = new DiscordSDK("1264837329886117959");
+
+                // Initialize
+                await discordSdk.ready();
+                
+                // If we got here, we are inside Discord
+                document.getElementById('sys-log').innerHTML += "> DISCORD_NET: SECURE<br>";
+                
+            } catch (error) {
+                // We are likely in a normal browser, or SDK failed.
+                // We do NOT stop the game. We just log it.
+                console.log("Discord SDK not active (Browser Mode):", error);
+                document.getElementById('sys-log').innerHTML += "> DISCORD_NET: OFFLINE<br>";
+            }
+        }
 
         // ==========================================
-        // 2. PROGRESSIVE AUDIO ENGINE
+        // 3. AUDIO ENGINE (With New Layers)
         // ==========================================
         const Game = (() => {
             let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
@@ -239,15 +235,8 @@
                 isPlaying: false,
                 currentChord: 0, 
                 timerID: null,
-                
-                // Progression: Dm -> F -> C -> G
                 progression: [146.83, 174.61, 130.81, 196.00], 
-                
-                scaleIntervals: [
-                    1, 1.2, 1.33, 1.5, 1.6, 
-                    2, 2.4, 2.66, 3.0, 3.2,
-                    4, 4.8, 5.33, 6.0, 6.4
-                ], 
+                scaleIntervals: [1, 1.2, 1.33, 1.5, 1.6, 2, 2.4, 2.66, 3.0, 3.2, 4, 4.8, 5.33, 6.0, 6.4], 
 
                 initCtx: () => { if(!Audio.ctx) Audio.ctx = new (window.AudioContext||window.webkitAudioContext)(); },
 
@@ -259,16 +248,13 @@
                     Audio.scheduler();
                 },
                 
-                stopMusic: () => {
-                    Audio.isPlaying = false;
-                    clearTimeout(Audio.timerID);
-                },
+                stopMusic: () => { Audio.isPlaying = false; clearTimeout(Audio.timerID); },
 
                 scheduler: () => {
                     if(!Audio.isPlaying) return;
                     while (Audio.nextNoteTime < Audio.ctx.currentTime + 0.1) {
                         Audio.playTick(Audio.nextNoteTime);
-                        Audio.nextNoteTime += (60 / Audio.bpm) / 4; // 16th notes
+                        Audio.nextNoteTime += (60 / Audio.bpm) / 4;
                     }
                     Audio.timerID = setTimeout(Audio.scheduler, 25);
                 },
@@ -276,56 +262,41 @@
                 playTick: (time) => {
                     const sixteenth = Audio.beatCount % 16;
                     const bar = Math.floor(Audio.beatCount / 16);
-                    
-                    if(sixteenth === 0 && bar % 4 === 0) {
-                        Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
-                    }
+                    if(sixteenth === 0 && bar % 4 === 0) Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
 
                     const rootFreq = Audio.progression[Audio.currentChord];
                     const isBoss = (state.l % 10 === 0);
                     const level = state.l;
 
-                    // --- LAYER 0: ATMOSPHERE (Always On) ---
-                    // Adds a cinematic pad/drone at the start of every bar
+                    // NEW: Atmosphere Drone (Level 1+)
                     if (sixteenth === 0) { 
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
-                        osc.type = 'triangle';
-                        osc.frequency.value = rootFreq * 2; // Octave up
-                        
+                        osc.type = 'triangle'; osc.frequency.value = rootFreq * 2;
                         g.gain.setValueAtTime(0, time);
-                        g.gain.linearRampToValueAtTime(0.05, time + 0.5); // Slow attack
-                        g.gain.linearRampToValueAtTime(0, time + 2.0); // Long release
-                        
-                        // Lowpass to make it "underwater" / atmospheric
+                        g.gain.linearRampToValueAtTime(0.05, time + 0.5);
+                        g.gain.linearRampToValueAtTime(0, time + 2.0);
                         const filter = Audio.ctx.createBiquadFilter();
-                        filter.type = 'lowpass';
-                        filter.frequency.value = 600;
-
+                        filter.type = 'lowpass'; filter.frequency.value = 600;
                         osc.connect(filter); filter.connect(g); g.connect(Audio.ctx.destination);
                         osc.start(time); osc.stop(time + 2.0);
                     }
 
-                    // --- LAYER 0.5: PULSE (Always On) ---
-                    // Subtle ticker to keep rhythm before hi-hats
+                    // NEW: Pulse Click (Level 1+)
                     if (sixteenth % 4 === 0) {
                          const osc = Audio.ctx.createOscillator();
                          const g = Audio.ctx.createGain();
-                         osc.type = 'square';
-                         osc.frequency.value = 2000;
+                         osc.type = 'square'; osc.frequency.value = 2000;
                          g.gain.setValueAtTime(0.01, time);
                          g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-                         
                          const hpf = Audio.ctx.createBiquadFilter();
                          hpf.type = 'highpass'; hpf.frequency.value = 1000;
-                         
                          osc.connect(hpf); hpf.connect(g); g.connect(Audio.ctx.destination);
                          osc.start(time); osc.stop(time + 0.05);
                     }
 
-                    // --- LAYER 1: KICK & BASS (Always On) ---
+                    // Kick & Bass (Always On)
                     if (sixteenth % 4 === 0) { 
-                        // Kick
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
                         osc.frequency.value = 60;
@@ -334,46 +305,37 @@
                         osc.connect(g); g.connect(Audio.ctx.destination);
                         osc.start(time); osc.stop(time + 0.2);
 
-                        // Bass
                         const bOsc = Audio.ctx.createOscillator();
                         const bG = Audio.ctx.createGain();
                         bOsc.type = 'sawtooth';
                         const detune = level > 15 ? 5 : 0; 
                         bOsc.frequency.value = (rootFreq / 4) + detune;
-                        
                         const filt = Audio.ctx.createBiquadFilter();
-                        filt.type = 'lowpass';
-                        filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
-
+                        filt.type = 'lowpass'; filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
                         bG.gain.setValueAtTime(0, time);
                         bG.gain.linearRampToValueAtTime(0.2, time + 0.1);
                         bG.gain.linearRampToValueAtTime(0, time + 0.25);
-                        
                         bOsc.connect(filt); filt.connect(bG); bG.connect(Audio.ctx.destination);
                         bOsc.start(time); bOsc.stop(time + 0.3);
                     }
 
-                    // --- LAYER 2: SNARE (Level 5+) ---
+                    // Snare (Level 5+)
                     if (level >= 5 && (sixteenth % 8 === 4)) { 
                         const n = Audio.ctx.createBufferSource();
                         const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.1, Audio.ctx.sampleRate);
                         const data = buffer.getChannelData(0);
                         for (let i = 0; i < buffer.length; i++) data[i] = (Math.random() * 2 - 1);
                         n.buffer = buffer;
-                        
                         const nG = Audio.ctx.createGain();
                         nG.gain.setValueAtTime(0.1, time);
                         nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-                        
                         const bpf = Audio.ctx.createBiquadFilter();
-                        bpf.type = 'bandpass';
-                        bpf.frequency.value = 1000;
-
+                        bpf.type = 'bandpass'; bpf.frequency.value = 1000;
                         n.connect(bpf); bpf.connect(nG); nG.connect(Audio.ctx.destination);
                         n.start(time);
                     }
 
-                    // --- LAYER 3: HI-HATS (Level 3+) ---
+                    // Hi-Hats (Level 3+)
                     const hatInterval = level >= 10 ? 2 : 4; 
                     if (level >= 3 && (sixteenth % hatInterval === 0) && sixteenth % 4 !== 0) { 
                         const n = Audio.ctx.createBufferSource();
@@ -383,32 +345,27 @@
                         n.buffer = buffer;
                         const nG = Audio.ctx.createGain();
                         nG.gain.value = 0.04;
-                        
                         const hpf = Audio.ctx.createBiquadFilter();
                         hpf.type = 'highpass'; hpf.frequency.value = 5000;
-                        
                         n.connect(hpf); hpf.connect(nG); nG.connect(Audio.ctx.destination);
                         n.start(time);
                     }
 
-                    // --- LAYER 4: ARPEGGIO (Rounds 5+ or Boss) ---
+                    // Arp (Lvl 5+ or Boss)
                     if ((state.r >= 5 || isBoss) && sixteenth % 2 === 0) {
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
                         osc.type = 'triangle';
                         const interval = Audio.scaleIntervals[sixteenth % 5];
                         osc.frequency.value = rootFreq * interval * 2; 
-                        
                         g.gain.setValueAtTime(0.03, time);
                         g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
                         osc.connect(g); g.connect(Audio.ctx.destination);
                         osc.start(time); osc.stop(time + 0.1);
                     }
-
                     Audio.beatCount++;
                 },
 
-                // --- PROGRESSIVE GAMEPLAY SOUNDS ---
                 playGameNote: (gridIndex) => {
                     Audio.initCtx();
                     const rootFreq = Audio.progression[Audio.currentChord];
@@ -417,18 +374,10 @@
 
                     const osc = Audio.ctx.createOscillator();
                     const g = Audio.ctx.createGain();
-                    
-                    if(state.l < 5) {
-                        osc.type = 'square'; 
-                    } else {
-                        osc.type = 'sawtooth'; 
-                    }
-                    
+                    osc.type = state.l < 5 ? 'square' : 'sawtooth';
                     osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
-                    
                     g.gain.setValueAtTime(0.05, Audio.ctx.currentTime);
                     g.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
-                    
                     osc.connect(g); g.connect(Audio.ctx.destination);
                     osc.start(); osc.stop(Audio.ctx.currentTime + 0.3);
 
@@ -449,12 +398,10 @@
                     const now = Audio.ctx.currentTime;
                     const rootFreq = Audio.progression[Audio.currentChord]; 
                     const chord = [1, 1.25, 1.5, 2]; 
-                    
                     chord.forEach((interval, i) => {
                         const o = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
-                        o.type = 'triangle'; 
-                        o.frequency.value = rootFreq * interval * 2; 
+                        o.type = 'triangle'; o.frequency.value = rootFreq * interval * 2; 
                         g.gain.setValueAtTime(0, now);
                         g.gain.linearRampToValueAtTime(0.1, now + 0.1 + (i*0.05));
                         g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
@@ -513,7 +460,6 @@
 
                 triggerSabotage();
                 state.seq.push(Math.floor(Math.random() * (state.sz * state.sz)));
-                
                 let speed = Math.max(150, 600 - (state.l * 20));
                 setTimeout(() => playSeq(speed), 800);
             };
@@ -537,9 +483,7 @@
                 let c = els.grid.children[id];
                 c.classList.add('active');
                 setTimeout(()=>c.classList.remove('active'), 150);
-                
                 Audio.playGameNote(id); 
-
                 state.input.push(id);
                 if(state.input[state.input.length-1] !== state.seq[state.input.length-1]) {
                     fail(); return;
@@ -606,6 +550,17 @@
                 document.getElementById('output-code').value = payload;
             };
         })();
+
+        // ==========================================
+        // 4. MAIN BOOT SEQUENCE
+        // ==========================================
+        window.onload = () => {
+            // 1. Start Visuals immediately (Browser support)
+            Visuals.init();
+            
+            // 2. Try starting Discord SDK in background
+            initDiscord();
+        };
     </script>
 </body>
 </html>
