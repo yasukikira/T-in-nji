@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CYBER PROTOCOL V7 [EXTREME]</title>
+    
     <script src="https://unpkg.com/@discord/embedded-app-sdk@1.0.0/dist/discord-sdk.bundled.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
     
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
         
-        /* FALLBACK BACKGROUND: If Three.js fails, you see this gradient */
         body { 
+            /* Fallback gradient if 3D takes time to load */
             background: radial-gradient(circle at center, #0a0a20 0%, #000000 100%); 
             color: var(--primary); 
             font-family: "Courier New", Courier, monospace; 
@@ -31,7 +33,6 @@
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
         .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: block; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; min-width: 200px;}
-        /* Force side panel visible for debugging */
         
         .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; perspective: 1000px; }
         
@@ -95,7 +96,8 @@
             </div>
         </div>
 
-        <div class="side-panel" style="display:none;"> <h3>ENV_STATUS</h3>
+        <div class="side-panel" style="display:none;"> 
+            <h3>ENV_STATUS</h3>
             <div style="font-size:0.8rem; opacity:0.9;">
                 STABILITY: <span id="env-stab">100%</span><br>
                 THREAT_LEVEL: <span id="env-threat">NONE</span>
@@ -104,7 +106,6 @@
     </div>
 
     <script>
-        // UTILS: Logging
         const logger = (msg) => {
             console.log(msg);
             const el = document.getElementById('sys-log');
@@ -112,26 +113,33 @@
         };
 
         // ==========================================
-        // 1. VISUAL ENGINE (BRUTE FORCE INIT)
+        // 1. VISUAL ENGINE (WITH POLLING LOADER)
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
             
-            init: () => {
-                if(Visuals.renderer) return; // Already init
-
-                try {
-                    logger("VISUALS: STARTING...");
-                    
-                    if (!window.THREE) {
-                        logger("ERR: THREE.JS NOT FOUND");
+            // This waits for the library to exist before starting
+            waitForLib: (attempts = 0) => {
+                if (window.THREE) {
+                    logger("VISUALS: LIB LOADED");
+                    Visuals.init();
+                } else {
+                    if (attempts > 50) { // 5 seconds max
+                        logger("ERR: LIB TIMEOUT (NETWORK?)");
                         return;
                     }
+                    if (attempts % 10 === 0) logger("VISUALS: LOADING LIB...");
+                    setTimeout(() => Visuals.waitForLib(attempts + 1), 100);
+                }
+            },
 
+            init: () => {
+                if(Visuals.renderer) return;
+
+                try {
                     const container = document.getElementById("canvas-container");
                     
-                    // Force Non-Zero Dims
                     const w = window.innerWidth || 300;
                     const h = window.innerHeight || 300;
 
@@ -142,28 +150,26 @@
                     Visuals.camera.position.set(0, 10, 50);
                     Visuals.camera.rotation.x = -0.2;
 
-                    // FORCE CONTEXT
+                    // Opaque renderer to prevent background disappearance
                     Visuals.renderer = new THREE.WebGLRenderer({ 
-                        alpha: false, // Opaque
+                        alpha: false, 
                         antialias: true,
-                        powerPreference: "high-performance" // Mobile Hint
+                        powerPreference: "high-performance"
                     });
                     
                     Visuals.renderer.setSize(w, h);
                     Visuals.renderer.setClearColor(0x050510);
-                    Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit DPI for performance
+                    Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                     
                     container.appendChild(Visuals.renderer.domElement);
                     logger("RENDERER: ATTACHED");
 
-                    // Geometry
                     const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
                     const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
                     Visuals.terrain = new THREE.Mesh(geo, mat);
                     Visuals.terrain.rotation.x = -Math.PI / 2;
                     Visuals.scene.add(Visuals.terrain);
 
-                    // Particles
                     const pGeo = new THREE.BufferGeometry();
                     const pPos = new Float32Array(1500 * 3);
                     for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
@@ -173,15 +179,13 @@
                     Visuals.scene.add(Visuals.particles);
 
                     Visuals.animate();
-                    logger("VISUALS: LOOP ACTIVE");
+                    logger("VISUALS: ONLINE");
 
-                    // Watchdog for resize
                     window.addEventListener('resize', Visuals.resize);
-                    setInterval(Visuals.resize, 1000); // Polling fallback
+                    setInterval(Visuals.resize, 1000); 
 
                 } catch(e) {
                     logger(`ERR: ${e.message}`);
-                    console.error(e);
                 }
             },
 
@@ -610,12 +614,8 @@
             };
         })();
 
-        // BOOT SEQUENCE (Immediate)
-        if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            Visuals.init();
-        } else {
-            document.addEventListener('DOMContentLoaded', Visuals.init);
-        }
+        // BOOT: START POLLING
+        Visuals.waitForLib();
         initDiscord();
 
     </script>
