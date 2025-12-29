@@ -9,14 +9,19 @@
     
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
-        body { background-color: var(--bg); color: var(--primary); font-family: "Courier New", Courier, monospace; margin: 0; height: 100vh; overflow: hidden; user-select: none; }
         
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        /* Body is just a fallback color now. Three.js handles the real background. */
+        body { background-color: #000; color: var(--primary); font-family: "Courier New", Courier, monospace; margin: 0; height: 100vh; overflow: hidden; user-select: none; }
         
-        .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 1; pointer-events: none; }
+        /* Canvas is strictly positioned */
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+        
+        /* Overlays sit ON TOP of canvas (z-index 2+) */
+        .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 5; pointer-events: none; }
         .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
         @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
+        /* Main UI sits on top of everything (z-index 10) */
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
         .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: none; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; }
@@ -96,40 +101,47 @@
 
     <script>
         // ==========================================
-        // 1. VISUAL ENGINE (RESIZE OBSERVER FIX)
+        // 1. VISUAL ENGINE (OPAQUE PIPELINE FIX)
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
+            lastWidth: 0, lastHeight: 0, // Watchdog variables
             
             init: () => {
                 try {
                     const container = document.getElementById("canvas-container");
                     
-                    // Default to non-zero defaults if window reports 0
-                    let width = window.innerWidth > 0 ? window.innerWidth : 800;
-                    let height = window.innerHeight > 0 ? window.innerHeight : 600;
+                    // Initial Layout Calculation
+                    let width = window.innerWidth;
+                    let height = window.innerHeight;
 
+                    // 1. Create Scene
                     Visuals.scene = new THREE.Scene();
                     Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
 
+                    // 2. Camera Setup
                     Visuals.camera = new THREE.PerspectiveCamera(75, width/height, 0.1, 1000);
                     Visuals.camera.position.set(0, 10, 50);
                     Visuals.camera.rotation.x = -0.2;
 
-                    Visuals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                    // 3. Renderer - IMPORTANT: alpha: false means we force our own background
+                    // This prevents transparency issues where the background disappears
+                    Visuals.renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
                     Visuals.renderer.setSize(width, height);
-                    Visuals.renderer.setPixelRatio(window.devicePixelRatio); 
+                    Visuals.renderer.setClearColor(0x050510); // Explicit Dark Blue
+                    Visuals.renderer.setPixelRatio(window.devicePixelRatio);
+                    
                     container.appendChild(Visuals.renderer.domElement);
 
-                    // Grid Terrain
+                    // 4. Geometry (Terrain)
                     const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
                     const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
                     Visuals.terrain = new THREE.Mesh(geo, mat);
                     Visuals.terrain.rotation.x = -Math.PI / 2;
                     Visuals.scene.add(Visuals.terrain);
 
-                    // Particles
+                    // 5. Particles
                     const pGeo = new THREE.BufferGeometry();
                     const pPos = new Float32Array(1500 * 3);
                     for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
@@ -138,17 +150,8 @@
                     Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
                     Visuals.scene.add(Visuals.particles);
 
-                    Visuals.animate();
                     document.getElementById('sys-log').innerHTML += "> VISUALS: ONLINE<br>";
-
-                    // --- FIX: ResizeObserver for Discord Iframe ---
-                    // This detects when the body size changes (expands from 0x0 to full screen)
-                    const resizeObserver = new ResizeObserver(entries => {
-                        for(let entry of entries) {
-                            Visuals.resize();
-                        }
-                    });
-                    resizeObserver.observe(document.body);
+                    Visuals.animate();
 
                 } catch(e) {
                     console.error("Visuals Init Failed:", e);
@@ -156,18 +159,22 @@
                 }
             },
 
-            resize: () => {
+            // Forced Resize Check - Called every frame
+            checkResize: () => {
                 if(!Visuals.camera || !Visuals.renderer) return;
+                const w = window.innerWidth;
+                const h = window.innerHeight;
                 
-                // Use clientWidth/Height which is more reliable in iframes
-                const w = document.body.clientWidth;
-                const h = document.body.clientHeight;
-                
-                if (w === 0 || h === 0) return; // Still waiting for expansion
-
-                Visuals.camera.aspect = w / h;
-                Visuals.camera.updateProjectionMatrix();
-                Visuals.renderer.setSize(w, h);
+                // If dimensions changed or we are stuck at 0 (and now have size)
+                if (w !== Visuals.lastWidth || h !== Visuals.lastHeight) {
+                    if (w > 0 && h > 0) {
+                        Visuals.camera.aspect = w / h;
+                        Visuals.camera.updateProjectionMatrix();
+                        Visuals.renderer.setSize(w, h);
+                        Visuals.lastWidth = w;
+                        Visuals.lastHeight = h;
+                    }
+                }
             },
 
             setMode: (isBoss) => {
@@ -177,12 +184,14 @@
                     Visuals.glitchMode = true; Visuals.targetSpeed = 0.35; Visuals.shakeIntensity = 0.6;
                     mat.color.setHex(0xff0055); Visuals.pMat.color.setHex(0xff0055);
                     mat.opacity = 0.6; Visuals.scene.fog.density = 0.005;
+                    Visuals.renderer.setClearColor(0x1a0005); // Reddish tint background
                     document.getElementById('danger-overlay').style.display = 'block';
                     document.getElementById('env-threat').innerText = "CRITICAL"; document.getElementById('env-threat').style.color = "red";
                 } else {
                     Visuals.glitchMode = false; Visuals.targetSpeed = 0.05; Visuals.shakeIntensity = 0;
                     mat.color.setHex(0x00f3ff); Visuals.pMat.color.setHex(0xffffff);
                     mat.opacity = 0.3; Visuals.scene.fog.density = 0.002;
+                    Visuals.renderer.setClearColor(0x050510); // Standard Blue background
                     Visuals.camera.position.x = 0; Visuals.camera.rotation.z = 0; 
                     document.getElementById('danger-overlay').style.display = 'none';
                     document.getElementById('env-threat').innerText = "NONE"; document.getElementById('env-threat').style.color = "#0aa";
@@ -191,6 +200,10 @@
 
             animate: () => {
                 requestAnimationFrame(Visuals.animate);
+                
+                // Watchdog Check
+                Visuals.checkResize();
+
                 Visuals.currentSpeed += (Visuals.targetSpeed - Visuals.currentSpeed) * 0.05;
                 const pos = Visuals.terrain.geometry.attributes.position;
                 const arr = pos.array;
@@ -251,13 +264,10 @@
                 initCtx: () => { 
                     if(!Audio.ctx) {
                         Audio.ctx = new (window.AudioContext||window.webkitAudioContext)();
-                        
-                        // MASTER BUS - Volume Boost + Compression
                         Audio.masterGain = Audio.ctx.createGain();
                         Audio.compressor = Audio.ctx.createDynamicsCompressor();
                         
                         Audio.masterGain.gain.value = 0.8; // High output gain
-                        
                         Audio.compressor.threshold.value = -20;
                         Audio.compressor.knee.value = 40;
                         Audio.compressor.ratio.value = 12;
@@ -324,7 +334,6 @@
 
                     // Kick & Bass
                     if (sixteenth % 4 === 0) { 
-                        // Kick
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
                         osc.frequency.value = 60;
@@ -333,7 +342,6 @@
                         osc.connect(g); g.connect(Audio.masterGain);
                         osc.start(time); osc.stop(time + 0.2);
 
-                        // Bass
                         const bOsc = Audio.ctx.createOscillator();
                         const bG = Audio.ctx.createGain();
                         bOsc.type = 'sawtooth';
