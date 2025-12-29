@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL V7 [INTENSE]</title>
+    <title>CYBER PROTOCOL V7 [FINAL]</title>
     
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
@@ -19,7 +19,7 @@
             user-select: none; 
         }
 
-        /* --- FAILSAFE CSS BACKGROUND (Active if Three.js fails) --- */
+        /* --- FAILSAFE CSS BACKGROUND --- */
         #css-fallback {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
             background: 
@@ -48,8 +48,19 @@
         /* UI */
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
-        .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: block; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; min-width: 200px;}
+        /* Side Panel: Hidden on Mobile, Visible on Desktop */
+        .side-panel { 
+            flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); 
+            display: none; /* Default Hidden (Mobile) */
+            padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); 
+            transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; min-width: 200px;
+        }
         
+        /* Desktop Breakpoint */
+        @media (min-width: 900px) { 
+            .side-panel { display: block; } 
+        }
+
         .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; perspective: 1000px; }
         
         .screen { background: var(--panel-bg); border: 1px solid var(--primary); width: 100%; padding: 30px 0; display: none; flex-direction: column; align-items: center; backdrop-filter: blur(8px); transition: transform 0.5s ease; box-shadow: 0 0 30px rgba(0,0,0,0.5); text-shadow: 0 0 2px #000; }
@@ -79,9 +90,11 @@
 
     <div id="main-layout">
         <div class="side-panel">
-            <h3>SYS_LOG</h3>
-            <div id="sys-log" style="font-size:0.7rem; opacity:0.9; line-height:1.5; font-family:monospace; color:#0f0;">
-                > BOOT_SEQ_INIT...<br>
+            <h3>SYS_DIAGNOSTICS</h3>
+            <div id="sys-log" style="font-size:0.8rem; opacity:0.9; line-height:1.5;">
+                > SYSTEM_READY<br>
+                > AUDIO_ENGINE: ADAPTIVE<br>
+                > NETWORK: SECURE<br>
             </div>
         </div>
 
@@ -113,18 +126,16 @@
             </div>
         </div>
 
-        <div class="side-panel" style="display:none;">
+        <div class="side-panel">
             <h3>ENV_STATUS</h3>
+            <div style="font-size:0.8rem; opacity:0.9;">
+                STABILITY: <span id="env-stab">100%</span><br>
+                THREAT_LEVEL: <span id="env-threat">NONE</span>
+            </div>
         </div>
     </div>
 
     <script type="module">
-        const logger = (msg) => {
-            console.log(msg);
-            const el = document.getElementById('sys-log');
-            if(el) el.innerHTML += `> ${msg}<br>`;
-        };
-
         const State = {
             threeLoaded: false,
             discordLoaded: false,
@@ -136,38 +147,33 @@
         // ==========================================
         async function loadModules() {
             try {
-                logger("NET: LOADING VISUALS...");
+                // Try Skypack (ESM Optimized) first
                 let THREE = await import('https://cdn.skypack.dev/three@0.136.0');
                 if (!THREE || !THREE.Scene) throw new Error("Skypack failed");
                 window.THREE = THREE;
                 State.threeLoaded = true;
-                logger("NET: VISUALS OK");
                 initVisuals(THREE);
             } catch (e) {
-                logger("WARN: CDN 1 BLOCKED. TRYING UNPKG...");
                 try {
+                    // Fallback to Unpkg Module
                     let THREE = await import('https://unpkg.com/three@0.136.0/build/three.module.js');
                     window.THREE = THREE;
                     State.threeLoaded = true;
-                    logger("NET: VISUALS OK (BACKUP)");
                     initVisuals(THREE);
                 } catch (e2) {
-                    logger("ERR: ALL VISUAL CDNS BLOCKED.");
-                    logger("SYS: ENABLING CSS FALLBACK");
+                    // Critical Failure: Enable CSS Grid
                     document.getElementById('css-fallback').style.display = 'block';
                 }
             }
 
             try {
-                logger("NET: LOADING SDK...");
                 let SDK = await import('https://cdn.skypack.dev/@discord/embedded-app-sdk');
                 const { DiscordSDK } = SDK;
                 // !!! REPLACE CLIENT ID !!!
                 const discordSdk = new DiscordSDK("1264837329886117959");
                 await discordSdk.ready();
-                logger("SDK: CONNECTED");
             } catch (e) {
-                logger("SDK: OFFLINE (BROWSER MODE)");
+                console.warn("SDK Offline");
             }
         }
 
@@ -196,6 +202,7 @@
                     mat.opacity = 0.6; Visuals.scene.fog.density = 0.005;
                     Visuals.renderer.setClearColor(0x1a0005);
                     document.getElementById('danger-overlay').style.display = 'block';
+                    document.getElementById('env-threat').innerText = "CRITICAL"; document.getElementById('env-threat').style.color = "red";
                 } else {
                     // NORMAL MODE
                     Visuals.glitchMode = false; Visuals.targetSpeed = 0.05; Visuals.shakeIntensity = 0;
@@ -204,6 +211,7 @@
                     Visuals.renderer.setClearColor(0x050510);
                     Visuals.camera.position.x = 0; Visuals.camera.rotation.z = 0; 
                     document.getElementById('danger-overlay').style.display = 'none';
+                    document.getElementById('env-threat').innerText = "NONE"; document.getElementById('env-threat').style.color = "#0aa";
                 }
             }
         };
@@ -301,8 +309,7 @@
                             Audio.compressor.ratio.value = 12;
                             Audio.masterGain.connect(Audio.compressor);
                             Audio.compressor.connect(Audio.ctx.destination);
-                            logger("AUDIO: INIT OK");
-                        } catch(e) { logger("AUDIO: FAIL"); }
+                        } catch(e) {}
                     }
                 },
 
@@ -332,7 +339,7 @@
                     if(sixteenth === 0 && bar % 4 === 0) Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
                     const rootFreq = Audio.progression[Audio.currentChord];
                     
-                    // --- BOSS LOGIC CHANGE: Every 5 levels ---
+                    // --- BOSS LOGIC: Every 5 levels ---
                     const isBoss = (state.l % 5 === 0);
                     const level = state.l;
                     
@@ -386,7 +393,7 @@
                         const hpf = Audio.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 5000;
                         n.connect(hpf); hpf.connect(nG); nG.connect(Audio.masterGain); n.start(time);
                     }
-                    // Arp (Plays on Rounds 5+ OR Boss Levels)
+                    // Arp
                     if ((state.r >= 5 || isBoss) && sixteenth % 2 === 0) {
                         const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
                         osc.type = 'triangle'; osc.frequency.value = rootFreq * Audio.scaleIntervals[sixteenth % 5] * 2; 
@@ -453,11 +460,8 @@
             };
 
             const triggerSabotage = () => {
-                // BOSS TRIGGER: Every 5 levels
                 const isBoss = (state.l % 5 === 0);
                 Visuals.setMode(isBoss);
-                
-                // BPM Scaling
                 Audio.bpm = 120 + Math.min(40, Math.floor(state.l / 5) * 5);
                 if(isBoss) Audio.bpm += 20; 
 
@@ -570,7 +574,6 @@
             };
         })();
 
-        // BOOT
         loadModules();
     </script>
 </body>
