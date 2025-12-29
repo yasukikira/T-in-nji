@@ -96,7 +96,7 @@
 
     <script>
         // ==========================================
-        // 1. VISUAL ENGINE (ROBUST MODE)
+        // 1. VISUAL ENGINE (RESIZE OBSERVER FIX)
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
@@ -106,9 +106,9 @@
                 try {
                     const container = document.getElementById("canvas-container");
                     
-                    // Force dimensions to be non-zero
-                    let width = window.innerWidth || 800;
-                    let height = window.innerHeight || 600;
+                    // Default to non-zero defaults if window reports 0
+                    let width = window.innerWidth > 0 ? window.innerWidth : 800;
+                    let height = window.innerHeight > 0 ? window.innerHeight : 600;
 
                     Visuals.scene = new THREE.Scene();
                     Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
@@ -119,10 +119,10 @@
 
                     Visuals.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
                     Visuals.renderer.setSize(width, height);
-                    Visuals.renderer.setPixelRatio(window.devicePixelRatio); // Sharpness fix
+                    Visuals.renderer.setPixelRatio(window.devicePixelRatio); 
                     container.appendChild(Visuals.renderer.domElement);
 
-                    // Terrain
+                    // Grid Terrain
                     const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
                     const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
                     Visuals.terrain = new THREE.Mesh(geo, mat);
@@ -141,21 +141,30 @@
                     Visuals.animate();
                     document.getElementById('sys-log').innerHTML += "> VISUALS: ONLINE<br>";
 
-                    // Force resize check loop for Discord Iframe lagging
-                    setTimeout(Visuals.resize, 100);
-                    setTimeout(Visuals.resize, 500);
-                    setTimeout(Visuals.resize, 2000);
-                    window.addEventListener('resize', Visuals.resize);
+                    // --- FIX: ResizeObserver for Discord Iframe ---
+                    // This detects when the body size changes (expands from 0x0 to full screen)
+                    const resizeObserver = new ResizeObserver(entries => {
+                        for(let entry of entries) {
+                            Visuals.resize();
+                        }
+                    });
+                    resizeObserver.observe(document.body);
 
                 } catch(e) {
                     console.error("Visuals Init Failed:", e);
+                    document.getElementById('sys-log').innerHTML += "> ERR: VISUAL_FAIL<br>";
                 }
             },
 
             resize: () => {
                 if(!Visuals.camera || !Visuals.renderer) return;
-                const w = window.innerWidth;
-                const h = window.innerHeight;
+                
+                // Use clientWidth/Height which is more reliable in iframes
+                const w = document.body.clientWidth;
+                const h = document.body.clientHeight;
+                
+                if (w === 0 || h === 0) return; // Still waiting for expansion
+
                 Visuals.camera.aspect = w / h;
                 Visuals.camera.updateProjectionMatrix();
                 Visuals.renderer.setSize(w, h);
@@ -222,7 +231,7 @@
         }
 
         // ==========================================
-        // 3. AUDIO ENGINE (BOOSTED FOR DISCORD)
+        // 3. AUDIO ENGINE (BOOSTED)
         // ==========================================
         const Game = (() => {
             let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
@@ -243,15 +252,12 @@
                     if(!Audio.ctx) {
                         Audio.ctx = new (window.AudioContext||window.webkitAudioContext)();
                         
-                        // MASTER BUS SETUP
-                        // Create a master gain and a compressor to prevent clipping while boosting volume
+                        // MASTER BUS - Volume Boost + Compression
                         Audio.masterGain = Audio.ctx.createGain();
                         Audio.compressor = Audio.ctx.createDynamicsCompressor();
                         
-                        // Volume Boost for Discord (0.5 is standard, we go 0.8)
-                        Audio.masterGain.gain.value = 0.8;
+                        Audio.masterGain.gain.value = 0.8; // High output gain
                         
-                        // Compressor Settings
                         Audio.compressor.threshold.value = -20;
                         Audio.compressor.knee.value = 40;
                         Audio.compressor.ratio.value = 12;
@@ -263,7 +269,6 @@
 
                 startMusic: () => {
                     Audio.initCtx();
-                    // Resume context if suspended (browser policy)
                     if (Audio.ctx.state === 'suspended') Audio.ctx.resume();
                     if(Audio.isPlaying) return;
                     Audio.isPlaying = true;
@@ -290,27 +295,26 @@
                     const isBoss = (state.l % 10 === 0);
                     const level = state.l;
 
-                    // Atmosphere (Pad)
+                    // Atmosphere
                     if (sixteenth === 0) { 
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
                         osc.type = 'triangle'; osc.frequency.value = rootFreq * 2;
-                        // Boosted Gain
                         g.gain.setValueAtTime(0, time);
                         g.gain.linearRampToValueAtTime(0.2, time + 0.5); 
                         g.gain.linearRampToValueAtTime(0, time + 2.0);
                         const filter = Audio.ctx.createBiquadFilter();
                         filter.type = 'lowpass'; filter.frequency.value = 600;
-                        osc.connect(filter); filter.connect(g); g.connect(Audio.masterGain); // Route to Master
+                        osc.connect(filter); filter.connect(g); g.connect(Audio.masterGain);
                         osc.start(time); osc.stop(time + 2.0);
                     }
 
-                    // Pulse Click
+                    // Pulse
                     if (sixteenth % 4 === 0) {
                          const osc = Audio.ctx.createOscillator();
                          const g = Audio.ctx.createGain();
                          osc.type = 'square'; osc.frequency.value = 2000;
-                         g.gain.setValueAtTime(0.05, time); // Boosted
+                         g.gain.setValueAtTime(0.05, time);
                          g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
                          const hpf = Audio.ctx.createBiquadFilter();
                          hpf.type = 'highpass'; hpf.frequency.value = 1000;
@@ -324,7 +328,7 @@
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
                         osc.frequency.value = 60;
-                        g.gain.setValueAtTime(1.0, time); // Max Boost
+                        g.gain.setValueAtTime(1.0, time);
                         g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
                         osc.connect(g); g.connect(Audio.masterGain);
                         osc.start(time); osc.stop(time + 0.2);
@@ -338,7 +342,7 @@
                         const filt = Audio.ctx.createBiquadFilter();
                         filt.type = 'lowpass'; filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
                         bG.gain.setValueAtTime(0, time);
-                        bG.gain.linearRampToValueAtTime(0.4, time + 0.1); // Boosted
+                        bG.gain.linearRampToValueAtTime(0.4, time + 0.1);
                         bG.gain.linearRampToValueAtTime(0, time + 0.25);
                         bOsc.connect(filt); filt.connect(bG); bG.connect(Audio.masterGain);
                         bOsc.start(time); bOsc.stop(time + 0.3);
@@ -352,7 +356,7 @@
                         for (let i = 0; i < buffer.length; i++) data[i] = (Math.random() * 2 - 1);
                         n.buffer = buffer;
                         const nG = Audio.ctx.createGain();
-                        nG.gain.setValueAtTime(0.3, time); // Boosted
+                        nG.gain.setValueAtTime(0.3, time);
                         nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
                         const bpf = Audio.ctx.createBiquadFilter();
                         bpf.type = 'bandpass'; bpf.frequency.value = 1000;
@@ -369,7 +373,7 @@
                         for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
                         n.buffer = buffer;
                         const nG = Audio.ctx.createGain();
-                        nG.gain.value = 0.1; // Boosted
+                        nG.gain.value = 0.1;
                         const hpf = Audio.ctx.createBiquadFilter();
                         hpf.type = 'highpass'; hpf.frequency.value = 5000;
                         n.connect(hpf); hpf.connect(nG); nG.connect(Audio.masterGain);
@@ -383,7 +387,7 @@
                         osc.type = 'triangle';
                         const interval = Audio.scaleIntervals[sixteenth % 5];
                         osc.frequency.value = rootFreq * interval * 2; 
-                        g.gain.setValueAtTime(0.1, time); // Boosted
+                        g.gain.setValueAtTime(0.1, time);
                         g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
                         osc.connect(g); g.connect(Audio.masterGain);
                         osc.start(time); osc.stop(time + 0.1);
@@ -401,7 +405,7 @@
                     const g = Audio.ctx.createGain();
                     osc.type = state.l < 5 ? 'square' : 'sawtooth';
                     osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
-                    g.gain.setValueAtTime(0.15, Audio.ctx.currentTime); // Boosted
+                    g.gain.setValueAtTime(0.15, Audio.ctx.currentTime);
                     g.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
                     osc.connect(g); g.connect(Audio.masterGain);
                     osc.start(); osc.stop(Audio.ctx.currentTime + 0.3);
@@ -447,7 +451,6 @@
                 }
             };
 
-            // Game Logic
             const resetGrid = (size) => {
                 els.grid.innerHTML = '';
                 els.grid.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
