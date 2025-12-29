@@ -3,15 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CYBER PROTOCOL V7 [EXTREME]</title>
-    
-    <script src="https://unpkg.com/@discord/embedded-app-sdk@1.0.0/dist/discord-sdk.bundled.js"></script>
+    <title>CYBER PROTOCOL V7 [INTENSE]</title>
     
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
         
         body { 
-            background: radial-gradient(circle at center, #0a0a20 0%, #000000 100%); 
+            background-color: var(--bg);
             color: var(--primary); 
             font-family: "Courier New", Courier, monospace; 
             margin: 0; 
@@ -20,8 +18,27 @@
             overflow: hidden; 
             user-select: none; 
         }
-        
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+
+        /* --- FAILSAFE CSS BACKGROUND (Active if Three.js fails) --- */
+        #css-fallback {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+            background: 
+                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            perspective: 500px;
+            transform-style: preserve-3d;
+            animation: gridMove 20s linear infinite;
+            display: none; 
+        }
+        #css-fallback::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, transparent 30%, var(--bg) 90%);
+        }
+        @keyframes gridMove { 0% { background-position: 0 0; } 100% { background-position: 0 500px; } }
+
+        /* Canvas */
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; opacity: 0; transition: opacity 1s; }
         
         /* Overlays */
         .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 5; pointer-events: none; }
@@ -55,13 +72,14 @@
     </style>
 </head>
 <body>
+    <div id="css-fallback"></div>
     <div id="canvas-container"></div>
     <div class="overlay-fx"></div>
     <div class="glitch-overlay" id="danger-overlay"></div>
 
     <div id="main-layout">
         <div class="side-panel">
-            <h3>SYS_DIAGNOSTICS</h3>
+            <h3>SYS_LOG</h3>
             <div id="sys-log" style="font-size:0.7rem; opacity:0.9; line-height:1.5; font-family:monospace; color:#0f0;">
                 > BOOT_SEQ_INIT...<br>
             </div>
@@ -95,164 +113,136 @@
             </div>
         </div>
 
-        <div class="side-panel" style="display:none;"> 
+        <div class="side-panel" style="display:none;">
             <h3>ENV_STATUS</h3>
-            <div style="font-size:0.8rem; opacity:0.9;">
-                STABILITY: <span id="env-stab">100%</span><br>
-                THREAT_LEVEL: <span id="env-threat">NONE</span>
-            </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
         const logger = (msg) => {
             console.log(msg);
             const el = document.getElementById('sys-log');
             if(el) el.innerHTML += `> ${msg}<br>`;
         };
 
-        // ==========================================
-        // 0. DYNAMIC ASSET LOADER (Multi-CDN Strategy)
-        // ==========================================
-        const Loader = {
-            sources: [
-                "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js", // Cloudflare (Fastest)
-                "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",    // JSDelivr (Backup)
-                "https://unpkg.com/three@0.128.0/build/three.min.js"                 // Unpkg (Last Resort)
-            ],
-            
-            loadScript: (index = 0) => {
-                if (index >= Loader.sources.length) {
-                    logger("ERR: ALL CDNS FAILED. CHECK NET.");
-                    return;
-                }
-                
-                const src = Loader.sources[index];
-                logger(`NET: TRYING CDN ${index + 1}...`);
-                
-                const script = document.createElement('script');
-                script.src = src;
-                script.onload = () => {
-                    logger("NET: LIB DOWNLOADED");
-                    Visuals.init(); // Start Visuals immediately on success
-                };
-                script.onerror = () => {
-                    logger(`ERR: CDN ${index + 1} FAILED`);
-                    Loader.loadScript(index + 1); // Try next source
-                };
-                document.head.appendChild(script);
-            }
+        const State = {
+            threeLoaded: false,
+            discordLoaded: false,
+            gameReady: true
         };
 
         // ==========================================
-        // 1. VISUAL ENGINE (OPAQUE + ROBUST)
+        // 1. DYNAMIC LOADER
+        // ==========================================
+        async function loadModules() {
+            try {
+                logger("NET: LOADING VISUALS...");
+                let THREE = await import('https://cdn.skypack.dev/three@0.136.0');
+                if (!THREE || !THREE.Scene) throw new Error("Skypack failed");
+                window.THREE = THREE;
+                State.threeLoaded = true;
+                logger("NET: VISUALS OK");
+                initVisuals(THREE);
+            } catch (e) {
+                logger("WARN: CDN 1 BLOCKED. TRYING UNPKG...");
+                try {
+                    let THREE = await import('https://unpkg.com/three@0.136.0/build/three.module.js');
+                    window.THREE = THREE;
+                    State.threeLoaded = true;
+                    logger("NET: VISUALS OK (BACKUP)");
+                    initVisuals(THREE);
+                } catch (e2) {
+                    logger("ERR: ALL VISUAL CDNS BLOCKED.");
+                    logger("SYS: ENABLING CSS FALLBACK");
+                    document.getElementById('css-fallback').style.display = 'block';
+                }
+            }
+
+            try {
+                logger("NET: LOADING SDK...");
+                let SDK = await import('https://cdn.skypack.dev/@discord/embedded-app-sdk');
+                const { DiscordSDK } = SDK;
+                // !!! REPLACE CLIENT ID !!!
+                const discordSdk = new DiscordSDK("1264837329886117959");
+                await discordSdk.ready();
+                logger("SDK: CONNECTED");
+            } catch (e) {
+                logger("SDK: OFFLINE (BROWSER MODE)");
+            }
+        }
+
+        // ==========================================
+        // 2. VISUAL ENGINE
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
             
-            init: () => {
-                if(Visuals.renderer) return;
-
-                // Wait 100ms to ensure window.THREE is parsed
-                setTimeout(() => {
-                    if (!window.THREE) {
-                        logger("ERR: PARSE FAIL. RETRYING...");
-                        setTimeout(Visuals.init, 500);
-                        return;
-                    }
-
-                    try {
-                        const container = document.getElementById("canvas-container");
-                        
-                        // Force Dimensions
-                        const w = window.innerWidth > 0 ? window.innerWidth : 300;
-                        const h = window.innerHeight > 0 ? window.innerHeight : 300;
-
-                        Visuals.scene = new THREE.Scene();
-                        Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
-
-                        Visuals.camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
-                        Visuals.camera.position.set(0, 10, 50);
-                        Visuals.camera.rotation.x = -0.2;
-
-                        // RENDERER: Force Opaque to prevent transparency bugs
-                        Visuals.renderer = new THREE.WebGLRenderer({ 
-                            alpha: false, 
-                            antialias: true,
-                            powerPreference: "high-performance"
-                        });
-                        
-                        Visuals.renderer.setSize(w, h);
-                        Visuals.renderer.setClearColor(0x050510);
-                        Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                        
-                        container.appendChild(Visuals.renderer.domElement);
-                        logger("GFX: RENDERER ATTACHED");
-
-                        // Objects
-                        const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
-                        const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
-                        Visuals.terrain = new THREE.Mesh(geo, mat);
-                        Visuals.terrain.rotation.x = -Math.PI / 2;
-                        Visuals.scene.add(Visuals.terrain);
-
-                        const pGeo = new THREE.BufferGeometry();
-                        const pPos = new Float32Array(1500 * 3);
-                        for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
-                        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-                        Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
-                        Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
-                        Visuals.scene.add(Visuals.particles);
-
-                        Visuals.animate();
-                        logger("GFX: ENGINE ONLINE");
-
-                        // Add resize listeners
-                        window.addEventListener('resize', Visuals.resize);
-                        setInterval(Visuals.resize, 1000); 
-
-                    } catch(e) {
-                        logger(`ERR: GFX CRASH - ${e.message}`);
-                    }
-                }, 100);
-            },
-
-            resize: () => {
-                if(!Visuals.camera || !Visuals.renderer) return;
-                const w = window.innerWidth;
-                const h = window.innerHeight;
-                if (w === 0 || h === 0) return;
-                if (Math.abs(Visuals.renderer.domElement.width - w * window.devicePixelRatio) > 10) {
-                     Visuals.camera.aspect = w / h;
-                     Visuals.camera.updateProjectionMatrix();
-                     Visuals.renderer.setSize(w, h);
-                }
-            },
-
             setMode: (isBoss) => {
+                // Triggered if level % 5 == 0
+                if (!State.threeLoaded) {
+                     const fallback = document.getElementById('css-fallback');
+                     if(isBoss) fallback.style.filter = "hue-rotate(300deg) contrast(1.2)";
+                     else fallback.style.filter = "none";
+                     return;
+                }
+
                 if(!Visuals.terrain) return;
                 const mat = Visuals.terrain.material;
                 if(isBoss) {
+                    // BOSS MODE VISUALS (Red, Shake, Fast)
                     Visuals.glitchMode = true; Visuals.targetSpeed = 0.35; Visuals.shakeIntensity = 0.6;
                     mat.color.setHex(0xff0055); Visuals.pMat.color.setHex(0xff0055);
                     mat.opacity = 0.6; Visuals.scene.fog.density = 0.005;
                     Visuals.renderer.setClearColor(0x1a0005);
                     document.getElementById('danger-overlay').style.display = 'block';
-                    document.getElementById('env-threat').innerText = "CRITICAL"; document.getElementById('env-threat').style.color = "red";
                 } else {
+                    // NORMAL MODE
                     Visuals.glitchMode = false; Visuals.targetSpeed = 0.05; Visuals.shakeIntensity = 0;
                     mat.color.setHex(0x00f3ff); Visuals.pMat.color.setHex(0xffffff);
                     mat.opacity = 0.3; Visuals.scene.fog.density = 0.002;
                     Visuals.renderer.setClearColor(0x050510);
                     Visuals.camera.position.x = 0; Visuals.camera.rotation.z = 0; 
                     document.getElementById('danger-overlay').style.display = 'none';
-                    document.getElementById('env-threat').innerText = "NONE"; document.getElementById('env-threat').style.color = "#0aa";
                 }
-            },
+            }
+        };
 
-            animate: () => {
-                requestAnimationFrame(Visuals.animate);
+        function initVisuals(THREE) {
+            const container = document.getElementById("canvas-container");
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+
+            Visuals.scene = new THREE.Scene();
+            Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
+
+            Visuals.camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
+            Visuals.camera.position.set(0, 10, 50);
+            Visuals.camera.rotation.x = -0.2;
+
+            Visuals.renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true, powerPreference: "high-performance" });
+            Visuals.renderer.setSize(w, h);
+            Visuals.renderer.setClearColor(0x050510);
+            Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(Visuals.renderer.domElement);
+            container.style.opacity = 1;
+
+            const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
+            Visuals.terrain = new THREE.Mesh(geo, mat);
+            Visuals.terrain.rotation.x = -Math.PI / 2;
+            Visuals.scene.add(Visuals.terrain);
+
+            const pGeo = new THREE.BufferGeometry();
+            const pPos = new Float32Array(1500 * 3);
+            for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
+            Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
+            Visuals.scene.add(Visuals.particles);
+
+            function animate() {
+                requestAnimationFrame(animate);
                 Visuals.currentSpeed += (Visuals.targetSpeed - Visuals.currentSpeed) * 0.05;
                 const pos = Visuals.terrain.geometry.attributes.position;
                 const arr = pos.array;
@@ -271,33 +261,19 @@
                 }
                 Visuals.renderer.render(Visuals.scene, Visuals.camera);
             }
-        };
+            animate();
 
-        // ==========================================
-        // 2. DISCORD SDK SETUP
-        // ==========================================
-        let discordSdk = null;
-
-        async function initDiscord() {
-            try {
-                if (!window.DiscordSDK) {
-                     logger("SDK: WAITING...");
-                     return;
-                }
-                const { DiscordSDK } = window.DiscordSDK;
-                // !!! REPLACE WITH YOUR CLIENT ID !!!
-                discordSdk = new DiscordSDK("1264837329886117959");
-                await discordSdk.ready();
-                logger("SDK: READY");
-            } catch (error) {
-                logger("SDK: FAIL (BROWSER MODE)");
-            }
+            window.addEventListener('resize', () => {
+                Visuals.camera.aspect = window.innerWidth / window.innerHeight;
+                Visuals.camera.updateProjectionMatrix();
+                Visuals.renderer.setSize(window.innerWidth, window.innerHeight);
+            });
         }
 
         // ==========================================
-        // 3. AUDIO ENGINE (BOOSTED + COMPRESSED)
+        // 3. GAME LOGIC (Independent)
         // ==========================================
-        const Game = (() => {
+        (() => {
             let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
             const els = {
                 grid: document.getElementById('grid-container'),
@@ -319,18 +295,14 @@
                             Audio.ctx = new Ctx();
                             Audio.masterGain = Audio.ctx.createGain();
                             Audio.compressor = Audio.ctx.createDynamicsCompressor();
-                            
                             Audio.masterGain.gain.value = 0.8; 
                             Audio.compressor.threshold.value = -20;
                             Audio.compressor.knee.value = 40;
                             Audio.compressor.ratio.value = 12;
-                            
                             Audio.masterGain.connect(Audio.compressor);
                             Audio.compressor.connect(Audio.ctx.destination);
                             logger("AUDIO: INIT OK");
-                        } catch(e) {
-                            logger("AUDIO: INIT FAIL");
-                        }
+                        } catch(e) { logger("AUDIO: FAIL"); }
                     }
                 },
 
@@ -359,76 +331,50 @@
                     const bar = Math.floor(Audio.beatCount / 16);
                     if(sixteenth === 0 && bar % 4 === 0) Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
                     const rootFreq = Audio.progression[Audio.currentChord];
-                    const isBoss = (state.l % 10 === 0);
+                    
+                    // --- BOSS LOGIC CHANGE: Every 5 levels ---
+                    const isBoss = (state.l % 5 === 0);
                     const level = state.l;
-
+                    
                     // Atmosphere
                     if (sixteenth === 0) { 
-                        const osc = Audio.ctx.createOscillator();
-                        const g = Audio.ctx.createGain();
+                        const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
                         osc.type = 'triangle'; osc.frequency.value = rootFreq * 2;
-                        g.gain.setValueAtTime(0, time);
-                        g.gain.linearRampToValueAtTime(0.2, time + 0.5); 
-                        g.gain.linearRampToValueAtTime(0, time + 2.0);
-                        const filter = Audio.ctx.createBiquadFilter();
-                        filter.type = 'lowpass'; filter.frequency.value = 600;
-                        osc.connect(filter); filter.connect(g); g.connect(Audio.masterGain);
-                        osc.start(time); osc.stop(time + 2.0);
+                        g.gain.setValueAtTime(0, time); g.gain.linearRampToValueAtTime(0.2, time + 0.5); g.gain.linearRampToValueAtTime(0, time + 2.0);
+                        const filter = Audio.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 600;
+                        osc.connect(filter); filter.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 2.0);
                     }
-
                     // Pulse
                     if (sixteenth % 4 === 0) {
-                         const osc = Audio.ctx.createOscillator();
-                         const g = Audio.ctx.createGain();
+                         const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
                          osc.type = 'square'; osc.frequency.value = 2000;
-                         g.gain.setValueAtTime(0.05, time);
-                         g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-                         const hpf = Audio.ctx.createBiquadFilter();
-                         hpf.type = 'highpass'; hpf.frequency.value = 1000;
-                         osc.connect(hpf); hpf.connect(g); g.connect(Audio.masterGain);
-                         osc.start(time); osc.stop(time + 0.05);
+                         g.gain.setValueAtTime(0.05, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+                         const hpf = Audio.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 1000;
+                         osc.connect(hpf); hpf.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 0.05);
                     }
-
                     // Kick & Bass
                     if (sixteenth % 4 === 0) { 
-                        const osc = Audio.ctx.createOscillator();
-                        const g = Audio.ctx.createGain();
-                        osc.frequency.value = 60;
-                        g.gain.setValueAtTime(1.0, time);
-                        g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-                        osc.connect(g); g.connect(Audio.masterGain);
-                        osc.start(time); osc.stop(time + 0.2);
+                        const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
+                        osc.frequency.value = 60; g.gain.setValueAtTime(1.0, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+                        osc.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 0.2);
 
-                        const bOsc = Audio.ctx.createOscillator();
-                        const bG = Audio.ctx.createGain();
-                        bOsc.type = 'sawtooth';
-                        const detune = level > 15 ? 5 : 0; 
-                        bOsc.frequency.value = (rootFreq / 4) + detune;
-                        const filt = Audio.ctx.createBiquadFilter();
-                        filt.type = 'lowpass'; filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
-                        bG.gain.setValueAtTime(0, time);
-                        bG.gain.linearRampToValueAtTime(0.4, time + 0.1);
-                        bG.gain.linearRampToValueAtTime(0, time + 0.25);
-                        bOsc.connect(filt); filt.connect(bG); bG.connect(Audio.masterGain);
-                        bOsc.start(time); bOsc.stop(time + 0.3);
+                        const bOsc = Audio.ctx.createOscillator(); const bG = Audio.ctx.createGain();
+                        bOsc.type = 'sawtooth'; bOsc.frequency.value = (rootFreq / 4) + (level > 15 ? 5 : 0);
+                        const filt = Audio.ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
+                        bG.gain.setValueAtTime(0, time); bG.gain.linearRampToValueAtTime(0.4, time + 0.1); bG.gain.linearRampToValueAtTime(0, time + 0.25);
+                        bOsc.connect(filt); filt.connect(bG); bG.connect(Audio.masterGain); bOsc.start(time); bOsc.stop(time + 0.3);
                     }
-
                     // Snare
                     if (level >= 5 && (sixteenth % 8 === 4)) { 
                         const n = Audio.ctx.createBufferSource();
                         const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.1, Audio.ctx.sampleRate);
                         const data = buffer.getChannelData(0);
                         for (let i = 0; i < buffer.length; i++) data[i] = (Math.random() * 2 - 1);
-                        n.buffer = buffer;
-                        const nG = Audio.ctx.createGain();
-                        nG.gain.setValueAtTime(0.3, time);
-                        nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-                        const bpf = Audio.ctx.createBiquadFilter();
-                        bpf.type = 'bandpass'; bpf.frequency.value = 1000;
-                        n.connect(bpf); bpf.connect(nG); nG.connect(Audio.masterGain);
-                        n.start(time);
+                        n.buffer = buffer; const nG = Audio.ctx.createGain();
+                        nG.gain.setValueAtTime(0.3, time); nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                        const bpf = Audio.ctx.createBiquadFilter(); bpf.type = 'bandpass'; bpf.frequency.value = 1000;
+                        n.connect(bpf); bpf.connect(nG); nG.connect(Audio.masterGain); n.start(time);
                     }
-
                     // Hats
                     const hatInterval = level >= 10 ? 2 : 4; 
                     if (level >= 3 && (sixteenth % hatInterval === 0) && sixteenth % 4 !== 0) { 
@@ -436,26 +382,16 @@
                         const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.05, Audio.ctx.sampleRate);
                         const data = buffer.getChannelData(0);
                         for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
-                        n.buffer = buffer;
-                        const nG = Audio.ctx.createGain();
-                        nG.gain.value = 0.1;
-                        const hpf = Audio.ctx.createBiquadFilter();
-                        hpf.type = 'highpass'; hpf.frequency.value = 5000;
-                        n.connect(hpf); hpf.connect(nG); nG.connect(Audio.masterGain);
-                        n.start(time);
+                        n.buffer = buffer; const nG = Audio.ctx.createGain(); nG.gain.value = 0.1;
+                        const hpf = Audio.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 5000;
+                        n.connect(hpf); hpf.connect(nG); nG.connect(Audio.masterGain); n.start(time);
                     }
-
-                    // Arp
+                    // Arp (Plays on Rounds 5+ OR Boss Levels)
                     if ((state.r >= 5 || isBoss) && sixteenth % 2 === 0) {
-                        const osc = Audio.ctx.createOscillator();
-                        const g = Audio.ctx.createGain();
-                        osc.type = 'triangle';
-                        const interval = Audio.scaleIntervals[sixteenth % 5];
-                        osc.frequency.value = rootFreq * interval * 2; 
-                        g.gain.setValueAtTime(0.1, time);
-                        g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
-                        osc.connect(g); g.connect(Audio.masterGain);
-                        osc.start(time); osc.stop(time + 0.1);
+                        const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
+                        osc.type = 'triangle'; osc.frequency.value = rootFreq * Audio.scaleIntervals[sixteenth % 5] * 2; 
+                        g.gain.setValueAtTime(0.1, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                        osc.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 0.1);
                     }
                     Audio.beatCount++;
                 },
@@ -466,8 +402,7 @@
                     const degree = Audio.scaleIntervals[gridIndex % Audio.scaleIntervals.length];
                     const freq = rootFreq * degree * 2; 
 
-                    const osc = Audio.ctx.createOscillator();
-                    const g = Audio.ctx.createGain();
+                    const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
                     osc.type = state.l < 5 ? 'square' : 'sawtooth';
                     osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
                     g.gain.setValueAtTime(0.15, Audio.ctx.currentTime);
@@ -476,14 +411,10 @@
                     osc.start(); osc.stop(Audio.ctx.currentTime + 0.3);
 
                     if(state.l >= 15) {
-                        const osc2 = Audio.ctx.createOscillator();
-                        const g2 = Audio.ctx.createGain();
-                        osc2.type = 'sawtooth';
-                        osc2.frequency.setValueAtTime(freq * 1.25, Audio.ctx.currentTime); 
-                        g2.gain.setValueAtTime(0.1, Audio.ctx.currentTime);
-                        g2.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
-                        osc2.connect(g2); g2.connect(Audio.masterGain);
-                        osc2.start(); osc2.stop(Audio.ctx.currentTime + 0.3);
+                        const osc2 = Audio.ctx.createOscillator(); const g2 = Audio.ctx.createGain();
+                        osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(freq * 1.25, Audio.ctx.currentTime); 
+                        g2.gain.setValueAtTime(0.1, Audio.ctx.currentTime); g2.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
+                        osc2.connect(g2); g2.connect(Audio.masterGain); osc2.start(); osc2.stop(Audio.ctx.currentTime + 0.3);
                     }
                 },
 
@@ -491,28 +422,21 @@
                     Audio.initCtx();
                     const now = Audio.ctx.currentTime;
                     const rootFreq = Audio.progression[Audio.currentChord]; 
-                    const chord = [1, 1.25, 1.5, 2]; 
-                    chord.forEach((interval, i) => {
-                        const o = Audio.ctx.createOscillator();
-                        const g = Audio.ctx.createGain();
+                    [1, 1.25, 1.5, 2].forEach((interval, i) => {
+                        const o = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
                         o.type = 'triangle'; o.frequency.value = rootFreq * interval * 2; 
-                        g.gain.setValueAtTime(0, now);
-                        g.gain.linearRampToValueAtTime(0.2, now + 0.1 + (i*0.05));
+                        g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.2, now + 0.1 + (i*0.05));
                         g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-                        o.connect(g); g.connect(Audio.masterGain);
-                        o.start(now); o.stop(now + 2.0);
+                        o.connect(g); g.connect(Audio.masterGain); o.start(now); o.stop(now + 2.0);
                     });
                 },
 
                 fail: () => {
                     Audio.initCtx();
-                    const o = Audio.ctx.createOscillator();
-                    const g = Audio.ctx.createGain();
-                    o.type = 'sawtooth'; o.frequency.value = 60;
-                    o.frequency.linearRampToValueAtTime(40, Audio.ctx.currentTime + 0.3);
+                    const o = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
+                    o.type = 'sawtooth'; o.frequency.value = 60; o.frequency.linearRampToValueAtTime(40, Audio.ctx.currentTime + 0.3);
                     g.gain.value = 0.5; g.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
-                    o.connect(g); g.connect(Audio.masterGain);
-                    o.start(); o.stop(Audio.ctx.currentTime + 0.3);
+                    o.connect(g); g.connect(Audio.masterGain); o.start(); o.stop(Audio.ctx.currentTime + 0.3);
                 }
             };
 
@@ -529,8 +453,11 @@
             };
 
             const triggerSabotage = () => {
-                const isBoss = (state.l % 10 === 0);
+                // BOSS TRIGGER: Every 5 levels
+                const isBoss = (state.l % 5 === 0);
                 Visuals.setMode(isBoss);
+                
+                // BPM Scaling
                 Audio.bpm = 120 + Math.min(40, Math.floor(state.l / 5) * 5);
                 if(isBoss) Audio.bpm += 20; 
 
@@ -567,7 +494,7 @@
                     }, speed/2));
                 }
                 state.locked = false; 
-                if(!(state.l % 10 === 0)) els.msg.innerText = "REPEAT";
+                if(!(state.l % 5 === 0)) els.msg.innerText = "REPEAT";
             };
 
             const handleInput = (id) => {
@@ -643,13 +570,8 @@
             };
         })();
 
-        // BOOT SEQUENCE
-        // 1. Try to load Three.js dynamically
-        Loader.loadScript(0);
-        
-        // 2. Start Discord SDK in parallel
-        initDiscord();
-
+        // BOOT
+        loadModules();
     </script>
 </body>
 </html>
