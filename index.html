@@ -61,7 +61,8 @@
             <h3>SYS_DIAGNOSTICS</h3>
             <div id="sys-log" style="font-size:0.8rem; opacity:0.9; line-height:1.5;">
                 > SYSTEM_READY<br>
-                > AUDIO_ENGINE: ADAPTIVE<br>
+                > AUDIO_ENGINE: ENHANCED<br>
+                > DISCORD_SDK: INITIALIZING...<br>
             </div>
         </div>
 
@@ -102,7 +103,41 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // ==========================================
+        // 0. DISCORD SDK SETUP
+        // ==========================================
+        const { DiscordSDK } = window.DiscordSDK;
+        
+        // !!! IMPORTANT: REPLACE WITH YOUR CLIENT ID !!!
+        const discordSdk = new DiscordSDK("1264837329886117959");
+
+        async function initDiscord() {
+            try {
+                await discordSdk.ready();
+                
+                // Optional: Auto-auth
+                /*
+                const { code } = await discordSdk.commands.authorize({
+                    client_id: "YOUR_CLIENT_ID",
+                    response_type: "code",
+                    state: "",
+                    prompt: "none",
+                    scope: ["identify", "guilds"]
+                });
+                */
+
+                const log = document.getElementById('sys-log');
+                log.innerHTML += "> DISCORD_SDK: CONNECTED<br>";
+            } catch (e) {
+                console.warn("Discord SDK Init Failed (Running in browser?):", e);
+                const log = document.getElementById('sys-log');
+                log.innerHTML += "> DISCORD_SDK: OFFLINE MODE<br>";
+            }
+        }
+        
+        initDiscord();
+
         // ==========================================
         // 1. VISUAL ENGINE
         // ==========================================
@@ -208,8 +243,6 @@
                 // Progression: Dm -> F -> C -> G
                 progression: [146.83, 174.61, 130.81, 196.00], 
                 
-                // Scale Intervals (Minor Pentatonic + some spice)
-                // Expanded to cover 2+ octaves for large grids
                 scaleIntervals: [
                     1, 1.2, 1.33, 1.5, 1.6, 
                     2, 2.4, 2.66, 3.0, 3.2,
@@ -244,7 +277,6 @@
                     const sixteenth = Audio.beatCount % 16;
                     const bar = Math.floor(Audio.beatCount / 16);
                     
-                    // Change Chord every 4 bars
                     if(sixteenth === 0 && bar % 4 === 0) {
                         Audio.currentChord = (Audio.currentChord + 1) % Audio.progression.length;
                     }
@@ -253,8 +285,46 @@
                     const isBoss = (state.l % 10 === 0);
                     const level = state.l;
 
+                    // --- LAYER 0: ATMOSPHERE (Always On) ---
+                    // Adds a cinematic pad/drone at the start of every bar
+                    if (sixteenth === 0) { 
+                        const osc = Audio.ctx.createOscillator();
+                        const g = Audio.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.value = rootFreq * 2; // Octave up
+                        
+                        g.gain.setValueAtTime(0, time);
+                        g.gain.linearRampToValueAtTime(0.05, time + 0.5); // Slow attack
+                        g.gain.linearRampToValueAtTime(0, time + 2.0); // Long release
+                        
+                        // Lowpass to make it "underwater" / atmospheric
+                        const filter = Audio.ctx.createBiquadFilter();
+                        filter.type = 'lowpass';
+                        filter.frequency.value = 600;
+
+                        osc.connect(filter); filter.connect(g); g.connect(Audio.ctx.destination);
+                        osc.start(time); osc.stop(time + 2.0);
+                    }
+
+                    // --- LAYER 0.5: PULSE (Always On) ---
+                    // Subtle ticker to keep rhythm before hi-hats
+                    if (sixteenth % 4 === 0) {
+                         const osc = Audio.ctx.createOscillator();
+                         const g = Audio.ctx.createGain();
+                         osc.type = 'square';
+                         osc.frequency.value = 2000;
+                         g.gain.setValueAtTime(0.01, time);
+                         g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+                         
+                         const hpf = Audio.ctx.createBiquadFilter();
+                         hpf.type = 'highpass'; hpf.frequency.value = 1000;
+                         
+                         osc.connect(hpf); hpf.connect(g); g.connect(Audio.ctx.destination);
+                         osc.start(time); osc.stop(time + 0.05);
+                    }
+
                     // --- LAYER 1: KICK & BASS (Always On) ---
-                    if (sixteenth % 4 === 0) { // On the beat
+                    if (sixteenth % 4 === 0) { 
                         // Kick
                         const osc = Audio.ctx.createOscillator();
                         const g = Audio.ctx.createGain();
@@ -268,13 +338,12 @@
                         const bOsc = Audio.ctx.createOscillator();
                         const bG = Audio.ctx.createGain();
                         bOsc.type = 'sawtooth';
-                        // Detune bass at high levels for "thick/extreme" sound
                         const detune = level > 15 ? 5 : 0; 
                         bOsc.frequency.value = (rootFreq / 4) + detune;
                         
                         const filt = Audio.ctx.createBiquadFilter();
                         filt.type = 'lowpass';
-                        filt.frequency.value = isBoss ? 800 : (400 + (level*10)); // Filter opens up as you level up
+                        filt.frequency.value = isBoss ? 800 : (400 + (level*10)); 
 
                         bG.gain.setValueAtTime(0, time);
                         bG.gain.linearRampToValueAtTime(0.2, time + 0.1);
@@ -285,8 +354,7 @@
                     }
 
                     // --- LAYER 2: SNARE (Level 5+) ---
-                    // Adds drive and structure
-                    if (level >= 5 && (sixteenth % 8 === 4)) { // Beats 2 and 4
+                    if (level >= 5 && (sixteenth % 8 === 4)) { 
                         const n = Audio.ctx.createBufferSource();
                         const buffer = Audio.ctx.createBuffer(1, Audio.ctx.sampleRate * 0.1, Audio.ctx.sampleRate);
                         const data = buffer.getChannelData(0);
@@ -297,7 +365,6 @@
                         nG.gain.setValueAtTime(0.1, time);
                         nG.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
                         
-                        // Bandpass for snare "pop"
                         const bpf = Audio.ctx.createBiquadFilter();
                         bpf.type = 'bandpass';
                         bpf.frequency.value = 1000;
@@ -307,7 +374,6 @@
                     }
 
                     // --- LAYER 3: HI-HATS (Level 3+) ---
-                    // Level 10+ makes them twice as fast (16th notes)
                     const hatInterval = level >= 10 ? 2 : 4; 
                     if (level >= 3 && (sixteenth % hatInterval === 0) && sixteenth % 4 !== 0) { 
                         const n = Audio.ctx.createBufferSource();
@@ -346,18 +412,16 @@
                 playGameNote: (gridIndex) => {
                     Audio.initCtx();
                     const rootFreq = Audio.progression[Audio.currentChord];
-                    // Map larger grids to wider scale range
                     const degree = Audio.scaleIntervals[gridIndex % Audio.scaleIntervals.length];
                     const freq = rootFreq * degree * 2; 
 
                     const osc = Audio.ctx.createOscillator();
                     const g = Audio.ctx.createGain();
                     
-                    // PROGRESSION: Sound changes based on Level
                     if(state.l < 5) {
-                        osc.type = 'square'; // Classic
+                        osc.type = 'square'; 
                     } else {
-                        osc.type = 'sawtooth'; // Sharper/More intense
+                        osc.type = 'sawtooth'; 
                     }
                     
                     osc.frequency.setValueAtTime(freq, Audio.ctx.currentTime);
@@ -368,12 +432,10 @@
                     osc.connect(g); g.connect(Audio.ctx.destination);
                     osc.start(); osc.stop(Audio.ctx.currentTime + 0.3);
 
-                    // PROGRESSION: Level 15+ adds a Harmony Layer (Chord)
                     if(state.l >= 15) {
                         const osc2 = Audio.ctx.createOscillator();
                         const g2 = Audio.ctx.createGain();
                         osc2.type = 'sawtooth';
-                        // Play a major 3rd above
                         osc2.frequency.setValueAtTime(freq * 1.25, Audio.ctx.currentTime); 
                         g2.gain.setValueAtTime(0.03, Audio.ctx.currentTime);
                         g2.gain.exponentialRampToValueAtTime(0.001, Audio.ctx.currentTime + 0.3);
@@ -428,9 +490,8 @@
             const triggerSabotage = () => {
                 const isBoss = (state.l % 10 === 0);
                 Visuals.setMode(isBoss);
-                // BPM increases slightly every 5 levels
                 Audio.bpm = 120 + Math.min(40, Math.floor(state.l / 5) * 5);
-                if(isBoss) Audio.bpm += 20; // Boss surge
+                if(isBoss) Audio.bpm += 20; 
 
                 els.grid.classList.remove('sabotage-tilt', 'sabotage-invert');
                 if(isBoss) {
