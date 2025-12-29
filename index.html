@@ -7,13 +7,10 @@
     
     <script src="https://unpkg.com/@discord/embedded-app-sdk@1.0.0/dist/discord-sdk.bundled.js"></script>
     
-    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
-    
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
         
         body { 
-            /* Fallback gradient if 3D takes time to load */
             background: radial-gradient(circle at center, #0a0a20 0%, #000000 100%); 
             color: var(--primary); 
             font-family: "Courier New", Courier, monospace; 
@@ -26,10 +23,12 @@
         
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
         
+        /* Overlays */
         .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 5; pointer-events: none; }
         .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
         @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
+        /* UI */
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
         .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: block; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; min-width: 200px;}
@@ -113,87 +112,118 @@
         };
 
         // ==========================================
-        // 1. VISUAL ENGINE (WITH POLLING LOADER)
+        // 0. DYNAMIC ASSET LOADER (Multi-CDN Strategy)
+        // ==========================================
+        const Loader = {
+            sources: [
+                "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js", // Cloudflare (Fastest)
+                "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js",    // JSDelivr (Backup)
+                "https://unpkg.com/three@0.128.0/build/three.min.js"                 // Unpkg (Last Resort)
+            ],
+            
+            loadScript: (index = 0) => {
+                if (index >= Loader.sources.length) {
+                    logger("ERR: ALL CDNS FAILED. CHECK NET.");
+                    return;
+                }
+                
+                const src = Loader.sources[index];
+                logger(`NET: TRYING CDN ${index + 1}...`);
+                
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = () => {
+                    logger("NET: LIB DOWNLOADED");
+                    Visuals.init(); // Start Visuals immediately on success
+                };
+                script.onerror = () => {
+                    logger(`ERR: CDN ${index + 1} FAILED`);
+                    Loader.loadScript(index + 1); // Try next source
+                };
+                document.head.appendChild(script);
+            }
+        };
+
+        // ==========================================
+        // 1. VISUAL ENGINE (OPAQUE + ROBUST)
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
             
-            // This waits for the library to exist before starting
-            waitForLib: (attempts = 0) => {
-                if (window.THREE) {
-                    logger("VISUALS: LIB LOADED");
-                    Visuals.init();
-                } else {
-                    if (attempts > 50) { // 5 seconds max
-                        logger("ERR: LIB TIMEOUT (NETWORK?)");
-                        return;
-                    }
-                    if (attempts % 10 === 0) logger("VISUALS: LOADING LIB...");
-                    setTimeout(() => Visuals.waitForLib(attempts + 1), 100);
-                }
-            },
-
             init: () => {
                 if(Visuals.renderer) return;
 
-                try {
-                    const container = document.getElementById("canvas-container");
-                    
-                    const w = window.innerWidth || 300;
-                    const h = window.innerHeight || 300;
+                // Wait 100ms to ensure window.THREE is parsed
+                setTimeout(() => {
+                    if (!window.THREE) {
+                        logger("ERR: PARSE FAIL. RETRYING...");
+                        setTimeout(Visuals.init, 500);
+                        return;
+                    }
 
-                    Visuals.scene = new THREE.Scene();
-                    Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
+                    try {
+                        const container = document.getElementById("canvas-container");
+                        
+                        // Force Dimensions
+                        const w = window.innerWidth > 0 ? window.innerWidth : 300;
+                        const h = window.innerHeight > 0 ? window.innerHeight : 300;
 
-                    Visuals.camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
-                    Visuals.camera.position.set(0, 10, 50);
-                    Visuals.camera.rotation.x = -0.2;
+                        Visuals.scene = new THREE.Scene();
+                        Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
 
-                    // Opaque renderer to prevent background disappearance
-                    Visuals.renderer = new THREE.WebGLRenderer({ 
-                        alpha: false, 
-                        antialias: true,
-                        powerPreference: "high-performance"
-                    });
-                    
-                    Visuals.renderer.setSize(w, h);
-                    Visuals.renderer.setClearColor(0x050510);
-                    Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-                    
-                    container.appendChild(Visuals.renderer.domElement);
-                    logger("RENDERER: ATTACHED");
+                        Visuals.camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
+                        Visuals.camera.position.set(0, 10, 50);
+                        Visuals.camera.rotation.x = -0.2;
 
-                    const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
-                    const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
-                    Visuals.terrain = new THREE.Mesh(geo, mat);
-                    Visuals.terrain.rotation.x = -Math.PI / 2;
-                    Visuals.scene.add(Visuals.terrain);
+                        // RENDERER: Force Opaque to prevent transparency bugs
+                        Visuals.renderer = new THREE.WebGLRenderer({ 
+                            alpha: false, 
+                            antialias: true,
+                            powerPreference: "high-performance"
+                        });
+                        
+                        Visuals.renderer.setSize(w, h);
+                        Visuals.renderer.setClearColor(0x050510);
+                        Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                        
+                        container.appendChild(Visuals.renderer.domElement);
+                        logger("GFX: RENDERER ATTACHED");
 
-                    const pGeo = new THREE.BufferGeometry();
-                    const pPos = new Float32Array(1500 * 3);
-                    for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
-                    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-                    Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
-                    Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
-                    Visuals.scene.add(Visuals.particles);
+                        // Objects
+                        const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
+                        const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
+                        Visuals.terrain = new THREE.Mesh(geo, mat);
+                        Visuals.terrain.rotation.x = -Math.PI / 2;
+                        Visuals.scene.add(Visuals.terrain);
 
-                    Visuals.animate();
-                    logger("VISUALS: ONLINE");
+                        const pGeo = new THREE.BufferGeometry();
+                        const pPos = new Float32Array(1500 * 3);
+                        for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
+                        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+                        Visuals.pMat = new THREE.PointsMaterial({ size: 0.5, color: 0xffffff });
+                        Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
+                        Visuals.scene.add(Visuals.particles);
 
-                    window.addEventListener('resize', Visuals.resize);
-                    setInterval(Visuals.resize, 1000); 
+                        Visuals.animate();
+                        logger("GFX: ENGINE ONLINE");
 
-                } catch(e) {
-                    logger(`ERR: ${e.message}`);
-                }
+                        // Add resize listeners
+                        window.addEventListener('resize', Visuals.resize);
+                        setInterval(Visuals.resize, 1000); 
+
+                    } catch(e) {
+                        logger(`ERR: GFX CRASH - ${e.message}`);
+                    }
+                }, 100);
             },
 
             resize: () => {
                 if(!Visuals.camera || !Visuals.renderer) return;
                 const w = window.innerWidth;
                 const h = window.innerHeight;
-                if (Math.abs(Visuals.renderer.domElement.width - w) > 10) {
+                if (w === 0 || h === 0) return;
+                if (Math.abs(Visuals.renderer.domElement.width - w * window.devicePixelRatio) > 10) {
                      Visuals.camera.aspect = w / h;
                      Visuals.camera.updateProjectionMatrix();
                      Visuals.renderer.setSize(w, h);
@@ -261,12 +291,11 @@
                 logger("SDK: READY");
             } catch (error) {
                 logger("SDK: FAIL (BROWSER MODE)");
-                console.warn(error);
             }
         }
 
         // ==========================================
-        // 3. AUDIO ENGINE
+        // 3. AUDIO ENGINE (BOOSTED + COMPRESSED)
         // ==========================================
         const Game = (() => {
             let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
@@ -614,8 +643,11 @@
             };
         })();
 
-        // BOOT: START POLLING
-        Visuals.waitForLib();
+        // BOOT SEQUENCE
+        // 1. Try to load Three.js dynamically
+        Loader.loadScript(0);
+        
+        // 2. Start Discord SDK in parallel
         initDiscord();
 
     </script>
