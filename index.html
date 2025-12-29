@@ -10,23 +10,29 @@
     <style>
         :root { --primary: #00f3ff; --secondary: #ff0055; --bg: #050510; --panel-bg: rgba(0, 10, 20, 0.4); }
         
-        /* Body is just a fallback color now. Three.js handles the real background. */
-        body { background-color: #000; color: var(--primary); font-family: "Courier New", Courier, monospace; margin: 0; height: 100vh; overflow: hidden; user-select: none; }
+        /* FALLBACK BACKGROUND: If Three.js fails, you see this gradient */
+        body { 
+            background: radial-gradient(circle at center, #0a0a20 0%, #000000 100%); 
+            color: var(--primary); 
+            font-family: "Courier New", Courier, monospace; 
+            margin: 0; 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden; 
+            user-select: none; 
+        }
         
-        /* Canvas is strictly positioned */
         #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
         
-        /* Overlays sit ON TOP of canvas (z-index 2+) */
         .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 5; pointer-events: none; }
         .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
         @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
-        /* Main UI sits on top of everything (z-index 10) */
         #main-layout { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; position: relative; z-index: 10; gap: 20px; }
         
-        .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: none; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; }
-        @media (min-width: 900px) { .side-panel { display: block; } }
-
+        .side-panel { flex: 1; height: 80%; background: var(--panel-bg); border: 1px solid rgba(0,243,255,0.3); display: block; padding: 20px; clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px); transition: 0.3s; backdrop-filter: blur(5px); text-shadow: 0 0 5px #000; min-width: 200px;}
+        /* Force side panel visible for debugging */
+        
         .console-wrapper { width: 100%; max-width: 500px; display: flex; flex-direction: column; align-items: center; perspective: 1000px; }
         
         .screen { background: var(--panel-bg); border: 1px solid var(--primary); width: 100%; padding: 30px 0; display: none; flex-direction: column; align-items: center; backdrop-filter: blur(8px); transition: transform 0.5s ease; box-shadow: 0 0 30px rgba(0,0,0,0.5); text-shadow: 0 0 2px #000; }
@@ -56,9 +62,8 @@
     <div id="main-layout">
         <div class="side-panel">
             <h3>SYS_DIAGNOSTICS</h3>
-            <div id="sys-log" style="font-size:0.8rem; opacity:0.9; line-height:1.5;">
-                > SYSTEM_BOOT<br>
-                > AUDIO_ENGINE: STANDBY<br>
+            <div id="sys-log" style="font-size:0.7rem; opacity:0.9; line-height:1.5; font-family:monospace; color:#0f0;">
+                > BOOT_SEQ_INIT...<br>
             </div>
         </div>
 
@@ -90,8 +95,7 @@
             </div>
         </div>
 
-        <div class="side-panel">
-            <h3>ENV_STATUS</h3>
+        <div class="side-panel" style="display:none;"> <h3>ENV_STATUS</h3>
             <div style="font-size:0.8rem; opacity:0.9;">
                 STABILITY: <span id="env-stab">100%</span><br>
                 THREAT_LEVEL: <span id="env-threat">NONE</span>
@@ -100,48 +104,66 @@
     </div>
 
     <script>
+        // UTILS: Logging
+        const logger = (msg) => {
+            console.log(msg);
+            const el = document.getElementById('sys-log');
+            if(el) el.innerHTML += `> ${msg}<br>`;
+        };
+
         // ==========================================
-        // 1. VISUAL ENGINE (OPAQUE PIPELINE FIX)
+        // 1. VISUAL ENGINE (BRUTE FORCE INIT)
         // ==========================================
         const Visuals = {
             scene: null, camera: null, renderer: null, terrain: null, particles: null,
             targetSpeed: 0.05, currentSpeed: 0.05, shakeIntensity: 0, glitchMode: false,
-            lastWidth: 0, lastHeight: 0, // Watchdog variables
             
             init: () => {
+                if(Visuals.renderer) return; // Already init
+
                 try {
+                    logger("VISUALS: STARTING...");
+                    
+                    if (!window.THREE) {
+                        logger("ERR: THREE.JS NOT FOUND");
+                        return;
+                    }
+
                     const container = document.getElementById("canvas-container");
                     
-                    // Initial Layout Calculation
-                    let width = window.innerWidth;
-                    let height = window.innerHeight;
+                    // Force Non-Zero Dims
+                    const w = window.innerWidth || 300;
+                    const h = window.innerHeight || 300;
 
-                    // 1. Create Scene
                     Visuals.scene = new THREE.Scene();
                     Visuals.scene.fog = new THREE.FogExp2(0x050510, 0.002);
 
-                    // 2. Camera Setup
-                    Visuals.camera = new THREE.PerspectiveCamera(75, width/height, 0.1, 1000);
+                    Visuals.camera = new THREE.PerspectiveCamera(75, w/h, 0.1, 1000);
                     Visuals.camera.position.set(0, 10, 50);
                     Visuals.camera.rotation.x = -0.2;
 
-                    // 3. Renderer - IMPORTANT: alpha: false means we force our own background
-                    // This prevents transparency issues where the background disappears
-                    Visuals.renderer = new THREE.WebGLRenderer({ alpha: false, antialias: true });
-                    Visuals.renderer.setSize(width, height);
-                    Visuals.renderer.setClearColor(0x050510); // Explicit Dark Blue
-                    Visuals.renderer.setPixelRatio(window.devicePixelRatio);
+                    // FORCE CONTEXT
+                    Visuals.renderer = new THREE.WebGLRenderer({ 
+                        alpha: false, // Opaque
+                        antialias: true,
+                        powerPreference: "high-performance" // Mobile Hint
+                    });
+                    
+                    Visuals.renderer.setSize(w, h);
+                    Visuals.renderer.setClearColor(0x050510);
+                    Visuals.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit DPI for performance
                     
                     container.appendChild(Visuals.renderer.domElement);
+                    logger("RENDERER: ATTACHED");
 
-                    // 4. Geometry (Terrain)
+                    // Geometry
                     const geo = new THREE.PlaneGeometry(200, 200, 50, 50);
                     const mat = new THREE.MeshBasicMaterial({ color: 0x00f3ff, wireframe: true, transparent: true, opacity: 0.3 });
                     Visuals.terrain = new THREE.Mesh(geo, mat);
                     Visuals.terrain.rotation.x = -Math.PI / 2;
                     Visuals.scene.add(Visuals.terrain);
 
-                    // 5. Particles
+                    // Particles
                     const pGeo = new THREE.BufferGeometry();
                     const pPos = new Float32Array(1500 * 3);
                     for(let i=0; i<4500; i++) pPos[i] = (Math.random()-0.5)*200;
@@ -150,30 +172,27 @@
                     Visuals.particles = new THREE.Points(pGeo, Visuals.pMat);
                     Visuals.scene.add(Visuals.particles);
 
-                    document.getElementById('sys-log').innerHTML += "> VISUALS: ONLINE<br>";
                     Visuals.animate();
+                    logger("VISUALS: LOOP ACTIVE");
+
+                    // Watchdog for resize
+                    window.addEventListener('resize', Visuals.resize);
+                    setInterval(Visuals.resize, 1000); // Polling fallback
 
                 } catch(e) {
-                    console.error("Visuals Init Failed:", e);
-                    document.getElementById('sys-log').innerHTML += "> ERR: VISUAL_FAIL<br>";
+                    logger(`ERR: ${e.message}`);
+                    console.error(e);
                 }
             },
 
-            // Forced Resize Check - Called every frame
-            checkResize: () => {
+            resize: () => {
                 if(!Visuals.camera || !Visuals.renderer) return;
                 const w = window.innerWidth;
                 const h = window.innerHeight;
-                
-                // If dimensions changed or we are stuck at 0 (and now have size)
-                if (w !== Visuals.lastWidth || h !== Visuals.lastHeight) {
-                    if (w > 0 && h > 0) {
-                        Visuals.camera.aspect = w / h;
-                        Visuals.camera.updateProjectionMatrix();
-                        Visuals.renderer.setSize(w, h);
-                        Visuals.lastWidth = w;
-                        Visuals.lastHeight = h;
-                    }
+                if (Math.abs(Visuals.renderer.domElement.width - w) > 10) {
+                     Visuals.camera.aspect = w / h;
+                     Visuals.camera.updateProjectionMatrix();
+                     Visuals.renderer.setSize(w, h);
                 }
             },
 
@@ -184,14 +203,14 @@
                     Visuals.glitchMode = true; Visuals.targetSpeed = 0.35; Visuals.shakeIntensity = 0.6;
                     mat.color.setHex(0xff0055); Visuals.pMat.color.setHex(0xff0055);
                     mat.opacity = 0.6; Visuals.scene.fog.density = 0.005;
-                    Visuals.renderer.setClearColor(0x1a0005); // Reddish tint background
+                    Visuals.renderer.setClearColor(0x1a0005);
                     document.getElementById('danger-overlay').style.display = 'block';
                     document.getElementById('env-threat').innerText = "CRITICAL"; document.getElementById('env-threat').style.color = "red";
                 } else {
                     Visuals.glitchMode = false; Visuals.targetSpeed = 0.05; Visuals.shakeIntensity = 0;
                     mat.color.setHex(0x00f3ff); Visuals.pMat.color.setHex(0xffffff);
                     mat.opacity = 0.3; Visuals.scene.fog.density = 0.002;
-                    Visuals.renderer.setClearColor(0x050510); // Standard Blue background
+                    Visuals.renderer.setClearColor(0x050510);
                     Visuals.camera.position.x = 0; Visuals.camera.rotation.z = 0; 
                     document.getElementById('danger-overlay').style.display = 'none';
                     document.getElementById('env-threat').innerText = "NONE"; document.getElementById('env-threat').style.color = "#0aa";
@@ -200,10 +219,6 @@
 
             animate: () => {
                 requestAnimationFrame(Visuals.animate);
-                
-                // Watchdog Check
-                Visuals.checkResize();
-
                 Visuals.currentSpeed += (Visuals.targetSpeed - Visuals.currentSpeed) * 0.05;
                 const pos = Visuals.terrain.geometry.attributes.position;
                 const arr = pos.array;
@@ -231,20 +246,23 @@
 
         async function initDiscord() {
             try {
-                if (!window.DiscordSDK) return;
+                if (!window.DiscordSDK) {
+                     logger("SDK: WAITING...");
+                     return;
+                }
                 const { DiscordSDK } = window.DiscordSDK;
                 // !!! REPLACE WITH YOUR CLIENT ID !!!
                 discordSdk = new DiscordSDK("1264837329886117959");
                 await discordSdk.ready();
-                document.getElementById('sys-log').innerHTML += "> DISCORD_NET: CONNECTED<br>";
+                logger("SDK: READY");
             } catch (error) {
-                console.log("Discord SDK Standby:", error);
-                document.getElementById('sys-log').innerHTML += "> DISCORD_NET: STANDBY<br>";
+                logger("SDK: FAIL (BROWSER MODE)");
+                console.warn(error);
             }
         }
 
         // ==========================================
-        // 3. AUDIO ENGINE (BOOSTED)
+        // 3. AUDIO ENGINE
         // ==========================================
         const Game = (() => {
             let state = { l: 1, r: 1, seq: [], input: [], locked: true, sz: 3 };
@@ -263,23 +281,29 @@
 
                 initCtx: () => { 
                     if(!Audio.ctx) {
-                        Audio.ctx = new (window.AudioContext||window.webkitAudioContext)();
-                        Audio.masterGain = Audio.ctx.createGain();
-                        Audio.compressor = Audio.ctx.createDynamicsCompressor();
-                        
-                        Audio.masterGain.gain.value = 0.8; // High output gain
-                        Audio.compressor.threshold.value = -20;
-                        Audio.compressor.knee.value = 40;
-                        Audio.compressor.ratio.value = 12;
-                        
-                        Audio.masterGain.connect(Audio.compressor);
-                        Audio.compressor.connect(Audio.ctx.destination);
+                        try {
+                            const Ctx = window.AudioContext || window.webkitAudioContext;
+                            Audio.ctx = new Ctx();
+                            Audio.masterGain = Audio.ctx.createGain();
+                            Audio.compressor = Audio.ctx.createDynamicsCompressor();
+                            
+                            Audio.masterGain.gain.value = 0.8; 
+                            Audio.compressor.threshold.value = -20;
+                            Audio.compressor.knee.value = 40;
+                            Audio.compressor.ratio.value = 12;
+                            
+                            Audio.masterGain.connect(Audio.compressor);
+                            Audio.compressor.connect(Audio.ctx.destination);
+                            logger("AUDIO: INIT OK");
+                        } catch(e) {
+                            logger("AUDIO: INIT FAIL");
+                        }
                     }
                 },
 
                 startMusic: () => {
                     Audio.initCtx();
-                    if (Audio.ctx.state === 'suspended') Audio.ctx.resume();
+                    if (Audio.ctx && Audio.ctx.state === 'suspended') Audio.ctx.resume();
                     if(Audio.isPlaying) return;
                     Audio.isPlaying = true;
                     Audio.nextNoteTime = Audio.ctx.currentTime;
@@ -586,11 +610,14 @@
             };
         })();
 
-        // BOOT
-        window.onload = () => {
+        // BOOT SEQUENCE (Immediate)
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
             Visuals.init();
-            initDiscord();
-        };
+        } else {
+            document.addEventListener('DOMContentLoaded', Visuals.init);
+        }
+        initDiscord();
+
     </script>
 </body>
 </html>
