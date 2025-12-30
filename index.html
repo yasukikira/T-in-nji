@@ -122,6 +122,7 @@
             <div id="code-screen" class="screen">
                 <h2>KEY GENERATED</h2>
                 <textarea id="output-code" rows="4" readonly></textarea>
+                <button id="copy-btn" style="margin-bottom:10px; border-color:#fff;">COPY TO CLIPBOARD</button>
                 <button id="new-session-btn">NEW SESSION</button>
             </div>
         </div>
@@ -559,19 +560,49 @@
             document.getElementById('restart-btn').onclick = softReset;
             document.getElementById('new-session-btn').onclick = softReset;
 
+            // ==========================================
+            // FIX START: CORRECTED ENCODER LOGIC
+            // ==========================================
             document.getElementById('gen-btn').onclick = () => {
-                const uid = document.getElementById('discord-id').value;
+                const uid = document.getElementById('discord-id').value.trim();
                 const lvl = state.l - 1;
                 const err = document.getElementById('verify-error');
+                
                 if(lvl < 1) { err.innerText = "INSUFFICIENT DATA"; return; }
                 if(uid.length < 2) { err.innerText = "INVALID ID"; return; }
-                const salt = "SABOTAGE_MODE_ACTIVE";
-                const hexLvl = (lvl * 999).toString(16);
-                const payload = btoa(`${uid}::${hexLvl}::${Date.now()}::${salt}`);
+                
+                // Matches main.py expectations: UID :: LEVEL :: NONCE :: DATE :: SALT
+                const nonce = Math.random().toString(36).substring(7);
+                const salt = "CYBER_TRIVIA_SECRET_KEY_99";
+                const rawString = `${uid}::${lvl}::${nonce}::${Date.now()}::${salt}`;
+                const payload = btoa(rawString);
+
                 document.getElementById('reward-screen').classList.remove('visible');
                 document.getElementById('code-screen').classList.add('visible');
                 document.getElementById('output-code').value = payload;
             };
+
+            // COPY BUTTON LOGIC
+            document.getElementById('copy-btn').onclick = () => {
+                const copyText = document.getElementById("output-code");
+                copyText.select();
+                copyText.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(copyText.value).then(() => {
+                    const btn = document.getElementById('copy-btn');
+                    const originalText = btn.innerText;
+                    btn.innerText = "COPIED!";
+                    btn.style.background = "#fff";
+                    btn.style.color = "#000";
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.style.background = "";
+                        btn.style.color = "";
+                    }, 2000);
+                });
+            };
+            // ==========================================
+            // FIX END
+            // ==========================================
         })();
 
         loadModules();
