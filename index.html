@@ -42,7 +42,8 @@
         
         /* Overlays */
         .overlay-fx { position: fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; z-index: 5; pointer-events: none; }
-        .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 99; pointer-events: none; animation: flashWarn 0.2s infinite; }
+        /* FIXED: Changed z-index from 99 to 9 so it sits BEHIND the game grid (z-index 10) */
+        .glitch-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,0,0,0.1); z-index: 9; pointer-events: none; animation: flashWarn 0.2s infinite; }
         @keyframes flashWarn { 0%{opacity:0} 50%{opacity:0.3} 100%{opacity:0} }
 
         /* UI */
@@ -188,10 +189,10 @@
             setMode: (isBoss) => {
                 // Triggered if level % 5 == 0
                 if (!State.threeLoaded) {
-                     const fallback = document.getElementById('css-fallback');
-                     if(isBoss) fallback.style.filter = "hue-rotate(300deg) contrast(1.2)";
-                     else fallback.style.filter = "none";
-                     return;
+                      const fallback = document.getElementById('css-fallback');
+                      if(isBoss) fallback.style.filter = "hue-rotate(300deg) contrast(1.2)";
+                      else fallback.style.filter = "none";
+                      return;
                 }
 
                 if(!Visuals.terrain) return;
@@ -354,11 +355,11 @@
                     }
                     // Pulse
                     if (sixteenth % 4 === 0) {
-                         const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
-                         osc.type = 'square'; osc.frequency.value = 2000;
-                         g.gain.setValueAtTime(0.05, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
-                         const hpf = Audio.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 1000;
-                         osc.connect(hpf); hpf.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 0.05);
+                          const osc = Audio.ctx.createOscillator(); const g = Audio.ctx.createGain();
+                          osc.type = 'square'; osc.frequency.value = 2000;
+                          g.gain.setValueAtTime(0.05, time); g.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+                          const hpf = Audio.ctx.createBiquadFilter(); hpf.type = 'highpass'; hpf.frequency.value = 1000;
+                          osc.connect(hpf); hpf.connect(g); g.connect(Audio.masterGain); osc.start(time); osc.stop(time + 0.05);
                     }
                     // Kick & Bass
                     if (sixteenth % 4 === 0) { 
